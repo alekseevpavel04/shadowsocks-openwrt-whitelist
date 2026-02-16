@@ -9,7 +9,9 @@
 - Автообновление списков с GitHub (Re:filter + Zapret)
 - Свой список доменов (`my-domains.txt`), который не перезаписывается при обновлении
 - Автозапуск VPN при перезагрузке роутера
-- Тест скорости и доступности сайтов
+- Перехват DNS — все устройства в сети используют dnsmasq роутера
+- Блокировка UDP к заблокированным сайтам — принудительный переход на TCP через VPN (решает проблему с мобильными приложениями)
+- Тест доступности сайтов
 
 ## Структура
 ```
@@ -21,7 +23,6 @@ shadowsocks-vpn/
 ├── .gitignore
 ├── README.md
 └── lists/
-    ├── domains_all.lst    # [auto] Заблокированные РКН домены (Re:filter)
     ├── community.lst      # [auto] Популярные заблокированные сервисы (Re:filter)
     ├── list-general.txt   # [auto] Замедляемые домены (Zapret)
     ├── list-google.txt    # [auto] Google/YouTube домены (Zapret)
@@ -37,15 +38,14 @@ shadowsocks-vpn/
 
 ## Первоначальная настройка
 
-### 1. Настройка роутера
-
-Подключитесь к роутеру по SSH и выполните:
+### 1. Установка пакетов на роутере
 ```bash
-# Установка пакетов
 opkg update
 opkg install shadowsocks-libev-ss-local shadowsocks-libev-ss-redir shadowsocks-libev-ss-tunnel
+```
 
-# Создание конфига Shadowsocks (замените данные на свои)
+### 2. Создание конфига Shadowsocks
+```bash
 cat > /etc/shadowsocks-libev/config.json << 'EOF'
 {
     "server": "YOUR_SERVER_IP",
@@ -59,7 +59,9 @@ cat > /etc/shadowsocks-libev/config.json << 'EOF'
 EOF
 ```
 
-### 2. Установка скрипта автозапуска
+### 3. Установка скрипта автозапуска
+
+Замените `YOUR_SERVER_IP` на IP вашего Shadowsocks-сервера.
 ```bash
 cat > /etc/init.d/shadowsocks << 'EOF'
 #!/bin/sh /etc/rc.common
@@ -86,6 +88,9 @@ start() {
     iptables -t nat -A SS_REDIR -d 240.0.0.0/4 -j RETURN
     iptables -t nat -A SS_REDIR -m set --match-set vpn_list dst -p tcp -j REDIRECT --to-ports 1080
     iptables -t nat -A PREROUTING -p tcp -j SS_REDIR
+    iptables -t nat -A PREROUTING -p udp --dport 53 ! -d 192.168.8.1 -j DNAT --to-destination 192.168.8.1:53
+    iptables -t nat -A PREROUTING -p tcp --dport 53 ! -d 192.168.8.1 -j DNAT --to-destination 192.168.8.1:53
+    iptables -I FORWARD -p udp -m set --match-set vpn_list dst -j DROP
 }
 
 stop() {
@@ -93,6 +98,9 @@ stop() {
     iptables -t nat -D PREROUTING -p tcp -j SS_REDIR 2>/dev/null
     iptables -t nat -F SS_REDIR 2>/dev/null
     iptables -t nat -X SS_REDIR 2>/dev/null
+    iptables -t nat -D PREROUTING -p udp --dport 53 ! -d 192.168.8.1 -j DNAT --to-destination 192.168.8.1:53 2>/dev/null
+    iptables -t nat -D PREROUTING -p tcp --dport 53 ! -d 192.168.8.1 -j DNAT --to-destination 192.168.8.1:53 2>/dev/null
+    iptables -D FORWARD -p udp -m set --match-set vpn_list dst -j DROP 2>/dev/null
     ipset flush vpn_list 2>/dev/null
     rm -f /tmp/dnsmasq.d/vpn-whitelist.conf
     /etc/init.d/dnsmasq restart
@@ -102,40 +110,34 @@ chmod +x /etc/init.d/shadowsocks
 /etc/init.d/shadowsocks enable
 ```
 
-> **Важно:** замените `YOUR_SERVER_IP` на IP вашего Shadowsocks-сервера в обоих местах (config.json и init.d скрипт).
+### 4. Важно: путь dnsmasq
 
-### 3. Настройка dnsmasq
-
-Убедитесь, что dnsmasq читает конфиги из `/tmp/dnsmasq.d/`. Проверьте:
+Убедитесь, что dnsmasq читает конфиги из `/tmp/dnsmasq.d/`:
 ```bash
 grep "conf-dir" /var/etc/dnsmasq.conf* 2>/dev/null
 ```
 
-Если в выводе `/tmp/dnsmasq.d` — всё ок. Если `/etc/dnsmasq.d` — замените путь в скриптах.
+Если в выводе другой путь — замените `/tmp/dnsmasq.d/` в скриптах на ваш.
 
-### 4. Использование
-```bash
-# Скачать списки
-vpn-update.bat
-
-# Включить VPN
-vpn-start.bat
-
-# Проверить работу
-vpn-test.bat
-
-# Выключить VPN
-vpn-stop.bat
+## Использование
 ```
+vpn-update.bat     # Скачать свежие списки (раз в неделю)
+vpn-start.bat      # Включить VPN
+vpn-test.bat       # Проверить доступность сайтов
+vpn-stop.bat       # Выключить VPN
+```
+
+При перезагрузке роутера VPN запускается автоматически.
 
 ## Добавление своих доменов
 
-Откройте `lists/my-domains.txt` в текстовом редакторе и добавьте домены по одному на строку:
+Откройте `lists/my-domains.txt` и добавьте домены по одному на строку:
 ```
 x.com
 twitter.com
 twimg.com
 tiktok.com
+spotify.com
 ```
 
 Затем запустите `vpn-start.bat` для применения.
@@ -143,10 +145,25 @@ tiktok.com
 ## Как это работает
 
 1. `vpn-update.bat` скачивает актуальные списки доменов с GitHub
-2. `vpn-start.bat` загружает списки на роутер, запускает ss-redir и настраивает dnsmasq + ipset + iptables
-3. Когда устройство обращается к домену из списка, dnsmasq автоматически добавляет его IP в ipset
-4. iptables перенаправляет трафик к IP из ipset через Shadowsocks
-5. Остальной трафик идёт напрямую
+2. `vpn-start.bat` загружает списки на роутер и настраивает dnsmasq + ipset + iptables
+3. DNS-запросы всех устройств перехватываются и направляются на dnsmasq роутера
+4. Когда устройство обращается к домену из списка, dnsmasq добавляет его IP в ipset
+5. iptables перенаправляет TCP-трафик к IP из ipset через Shadowsocks
+6. UDP-трафик к заблокированным IP блокируется, вынуждая приложения использовать TCP через VPN
+7. Остальной трафик идёт напрямую
+
+## Рекомендации
+
+- **Отключите QUIC в Chrome**: `chrome://flags/#enable-quic` → Disabled. YouTube и Google используют QUIC (UDP), который не проходит через VPN.
+- **Отключите IPv6** на роутере — наш VPN работает только через IPv4, IPv6-трафик обойдёт VPN.
+- Обновляйте списки раз в неделю через `vpn-update.bat`
+
+## Известные ограничения
+
+- Только TCP-трафик идёт через VPN. UDP блокируется для заблокированных сайтов, вынуждая приложения переключаться на TCP.
+- Голосовые звонки Discord (UDP) могут не работать через роутерный VPN. Для звонков используйте VPN-приложение на устройстве.
+- Первое обращение к новому домену может быть медленным — ipset наполняется при DNS-запросе.
+- При обновлении прошивки роутера все настройки слетят — потребуется повторная установка.
 
 ## Источники списков
 
@@ -158,7 +175,7 @@ tiktok.com
 Протестировано на:
 - GL.iNet Flint 2 (GL-MT6000), OpenWrt 21.02
 
-Должно работать на любом роутере с OpenWrt при наличии необходимых пакетов.
+Должно работать на любом роутере с OpenWrt при наличии необходимых пакетов (`shadowsocks-libev-ss-redir`, `dnsmasq-full`, `ipset`).
 
 ## Благодарности
 
