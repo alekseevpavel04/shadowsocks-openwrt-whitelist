@@ -1,3 +1,6 @@
+# Local config with credentials (copy from config.example.bat and fill in)
+config.bat
+
 # Downloaded lists (re-download with vpn-update.bat)
 lists/community.lst
 lists/list-general.txt

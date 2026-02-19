@@ -8,3 +8,10 @@ abs.twimg.com
 pbs.twimg.com
 video.twimg.com
 linkedin.com
+factoriobin.com
+factorioprints.com
+rutracker.org
+applegamingwiki.com
+claude.ai
+anthropic.com
+api.anthropic.com

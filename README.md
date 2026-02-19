@@ -16,12 +16,17 @@
 ## Структура
 ```
 shadowsocks-vpn/
-├── vpn-start.bat      # Включить VPN и загрузить списки на роутер
-├── vpn-stop.bat       # Выключить VPN
-├── vpn-update.bat     # Скачать свежие списки с GitHub
-├── vpn-test.bat       # Тест доступности сайтов
+├── vpn-setup.bat          # Первоначальная настройка роутера с нуля
+├── vpn-start.bat          # Включить VPN и загрузить списки на роутер
+├── vpn-stop.bat           # Выключить VPN
+├── vpn-update.bat         # Скачать свежие списки с GitHub
+├── vpn-test.bat           # Тест доступности сайтов
+├── config.example.bat     # Шаблон конфига (скопировать в config.bat)
+├── config.bat             # Ваши данные сервера (не в git)
 ├── .gitignore
 ├── README.md
+├── templates/
+│   └── shadowsocks-init.sh    # Скрипт автозапуска для роутера
 └── lists/
     ├── community.lst      # [auto] Популярные заблокированные сервисы (Re:filter)
     ├── list-general.txt   # [auto] Замедляемые домены (Zapret)
@@ -38,89 +43,44 @@ shadowsocks-vpn/
 
 ## Первоначальная настройка
 
-### 1. Установка пакетов на роутере
-```bash
-opkg update
-opkg install shadowsocks-libev-ss-local shadowsocks-libev-ss-redir shadowsocks-libev-ss-tunnel
+### 1. Заполнить конфиг с данными сервера
+
+Скопируйте `config.example.bat` в `config.bat` и укажите свои данные:
+```
+SS_SERVER   — IP вашего Shadowsocks-сервера
+SS_PORT     — порт (обычно 443)
+SS_PASSWORD — пароль
+SS_METHOD   — метод шифрования (например chacha20-ietf-poly1305)
 ```
 
-### 2. Создание конфига Shadowsocks
-```bash
-cat > /etc/shadowsocks-libev/config.json << 'EOF'
-{
-    "server": "YOUR_SERVER_IP",
-    "server_port": 443,
-    "password": "YOUR_PASSWORD",
-    "method": "chacha20-ietf-poly1305",
-    "local_address": "0.0.0.0",
-    "local_port": 1080,
-    "timeout": 300
-}
-EOF
+### 2. Скачать списки доменов
+```
+vpn-update.bat
 ```
 
-### 3. Установка скрипта автозапуска
-
-Замените `YOUR_SERVER_IP` на IP вашего Shadowsocks-сервера.
-```bash
-cat > /etc/init.d/shadowsocks << 'EOF'
-#!/bin/sh /etc/rc.common
-START=99
-
-start() {
-    ss-redir -c /etc/shadowsocks-libev/config.json -b 0.0.0.0 -l 1080 -f /var/run/ss-redir.pid
-    sleep 2
-    ipset create vpn_list hash:ip hashsize 65536 maxelem 131072 -exist
-    ipset flush vpn_list
-    cat /etc/shadowsocks-libev/community.lst /etc/shadowsocks-libev/list-general.txt /etc/shadowsocks-libev/list-google.txt /etc/shadowsocks-libev/my-domains.txt 2>/dev/null | grep -v '^#' | grep -v '^$' | sort -u | awk '{print "ipset=/"$0"/vpn_list"}' > /tmp/dnsmasq.d/vpn-whitelist.conf
-    /etc/init.d/dnsmasq restart
-    iptables -t nat -N SS_REDIR 2>/dev/null
-    iptables -t nat -F SS_REDIR
-    iptables -t nat -D PREROUTING -p tcp -j SS_REDIR 2>/dev/null
-    iptables -t nat -A SS_REDIR -d YOUR_SERVER_IP -j RETURN
-    iptables -t nat -A SS_REDIR -d 0.0.0.0/8 -j RETURN
-    iptables -t nat -A SS_REDIR -d 10.0.0.0/8 -j RETURN
-    iptables -t nat -A SS_REDIR -d 127.0.0.0/8 -j RETURN
-    iptables -t nat -A SS_REDIR -d 169.254.0.0/16 -j RETURN
-    iptables -t nat -A SS_REDIR -d 172.16.0.0/12 -j RETURN
-    iptables -t nat -A SS_REDIR -d 192.168.0.0/16 -j RETURN
-    iptables -t nat -A SS_REDIR -d 224.0.0.0/4 -j RETURN
-    iptables -t nat -A SS_REDIR -d 240.0.0.0/4 -j RETURN
-    iptables -t nat -A SS_REDIR -m set --match-set vpn_list dst -p tcp -j REDIRECT --to-ports 1080
-    iptables -t nat -A PREROUTING -p tcp -j SS_REDIR
-    iptables -t nat -A PREROUTING -p udp --dport 53 ! -d 192.168.8.1 -j DNAT --to-destination 192.168.8.1:53
-    iptables -t nat -A PREROUTING -p tcp --dport 53 ! -d 192.168.8.1 -j DNAT --to-destination 192.168.8.1:53
-    iptables -I FORWARD -p udp -m set --match-set vpn_list dst -j DROP
-}
-
-stop() {
-    killall ss-redir 2>/dev/null
-    iptables -t nat -D PREROUTING -p tcp -j SS_REDIR 2>/dev/null
-    iptables -t nat -F SS_REDIR 2>/dev/null
-    iptables -t nat -X SS_REDIR 2>/dev/null
-    iptables -t nat -D PREROUTING -p udp --dport 53 ! -d 192.168.8.1 -j DNAT --to-destination 192.168.8.1:53 2>/dev/null
-    iptables -t nat -D PREROUTING -p tcp --dport 53 ! -d 192.168.8.1 -j DNAT --to-destination 192.168.8.1:53 2>/dev/null
-    iptables -D FORWARD -p udp -m set --match-set vpn_list dst -j DROP 2>/dev/null
-    ipset flush vpn_list 2>/dev/null
-    rm -f /tmp/dnsmasq.d/vpn-whitelist.conf
-    /etc/init.d/dnsmasq restart
-}
-EOF
-chmod +x /etc/init.d/shadowsocks
-/etc/init.d/shadowsocks enable
+### 3. Настроить роутер одной командой
+```
+vpn-setup.bat
 ```
 
-### 4. Важно: путь dnsmasq
+Скрипт автоматически:
+- Установит нужные пакеты на роутере (`opkg install`)
+- Запишет `config.json` на роутер
+- Установит и включит скрипт автозапуска
+- Загрузит списки доменов
+
+### Важно: путь dnsmasq
 
 Убедитесь, что dnsmasq читает конфиги из `/tmp/dnsmasq.d/`:
 ```bash
 grep "conf-dir" /var/etc/dnsmasq.conf* 2>/dev/null
 ```
 
-Если в выводе другой путь — замените `/tmp/dnsmasq.d/` в скриптах на ваш.
+Если в выводе другой путь — замените `/tmp/dnsmasq.d/` в `templates/shadowsocks-init.sh` на ваш, затем снова запустите `vpn-setup.bat`.
 
 ## Использование
 ```
+vpn-setup.bat      # Первоначальная настройка роутера с нуля
 vpn-update.bat     # Скачать свежие списки (раз в неделю)
 vpn-start.bat      # Включить VPN
 vpn-test.bat       # Проверить доступность сайтов
