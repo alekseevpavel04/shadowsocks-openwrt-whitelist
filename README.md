@@ -1,97 +1,105 @@
 # Shadowsocks VPN Whitelist for OpenWrt
 
-Набор скриптов для управления Shadowsocks VPN на роутерах с OpenWrt.
-Трафик к заблокированным/замедленным сайтам идёт через VPN, остальной — напрямую (белый список).
+Scripts for managing Shadowsocks VPN on OpenWrt routers.
+Only traffic to blocked/throttled domains goes through VPN — everything else is direct (whitelist routing).
 
-## Возможности
+## Features
 
-- Белый список доменов — через VPN идут только указанные сайты
-- Автообновление списков с GitHub (Re:filter + Zapret)
-- Свой список доменов (`my-domains.txt`), который не перезаписывается при обновлении
-- Автозапуск VPN при перезагрузке роутера
-- Перехват DNS — все устройства в сети используют dnsmasq роутера
-- Блокировка UDP к заблокированным сайтам — принудительный переход на TCP через VPN (решает проблему с мобильными приложениями)
-- Тест доступности сайтов
+- Whitelist routing — only listed domains go through VPN
+- Auto-updating domain lists from GitHub (Re:filter + Zapret)
+- Custom domain list (`my-domains.txt`) that is never overwritten on update
+- VPN auto-start on router reboot
+- DNS interception — all devices on the network use the router's dnsmasq
+- UDP blocking for listed domains — forces TCP through VPN (fixes issues with mobile apps)
+- Site availability test
 
-## Структура
+## Structure
 ```
 shadowsocks-vpn/
-├── vpn-setup.bat          # Первоначальная настройка роутера с нуля
-├── vpn-start.bat          # Включить VPN и загрузить списки на роутер
-├── vpn-stop.bat           # Выключить VPN
-├── vpn-update.bat         # Скачать свежие списки с GitHub
-├── vpn-test.bat           # Тест доступности сайтов
-├── config.example.bat     # Шаблон конфига (скопировать в config.bat)
-├── config.bat             # Ваши данные сервера (не в git)
+├── vpn-setup.bat          # First-time router setup
+├── vpn-start.bat          # Enable VPN and push lists to router
+├── vpn-stop.bat           # Disable VPN
+├── vpn-update.bat         # Download fresh lists from GitHub
+├── vpn-test.bat           # Site availability test
+├── config.example.bat     # Config template (copy to config.bat)
+├── config.bat             # Your server credentials (not in git)
 ├── .gitignore
 ├── README.md
 ├── templates/
-│   └── shadowsocks-init.sh    # Скрипт автозапуска для роутера
+│   └── shadowsocks-init.sh    # Router autostart service script
 └── lists/
-    ├── community.lst      # [auto] Популярные заблокированные сервисы (Re:filter)
-    ├── list-general.txt   # [auto] Замедляемые домены (Zapret)
-    ├── list-google.txt    # [auto] Google/YouTube домены (Zapret)
-    └── my-domains.txt     # Ваши домены (редактируется вручную)
+    ├── community.lst      # [auto] Blocked services list (Re:filter)
+    ├── list-general.txt   # [auto] Throttled domains (Zapret)
+    ├── list-google.txt    # [auto] Google/YouTube domains (Zapret)
+    └── my-domains.txt     # Your custom domains (edit manually)
 ```
 
-## Требования
+## Requirements
 
-- Роутер с OpenWrt (протестировано на GL.iNet Flint 2 / GL-MT6000)
-- Установленные пакеты: `shadowsocks-libev-ss-redir`, `dnsmasq-full`, `ipset`
-- Настроенный конфиг Shadowsocks на роутере (`/etc/shadowsocks-libev/config.json`)
-- Windows 10/11 с встроенным SSH-клиентом
+**Router:**
+- OpenWrt (tested on GL.iNet Flint 2 / GL-MT6000)
+- SSH root access (enabled by default on most OpenWrt routers)
+- Internet access for package installation during first setup
 
-## Первоначальная настройка
+**Computer:**
+- Windows 10/11 — scripts are `.bat` files
+- SSH client and `curl` — built into Windows 10/11, no extra installation needed
 
-### 1. Заполнить конфиг с данными сервера
+> **Linux/macOS:** `.bat` files won't run directly, but all underlying commands (ssh, scp, curl) are standard and can easily be adapted to bash.
 
-Скопируйте `config.example.bat` в `config.bat` и укажите свои данные:
+Router packages (`shadowsocks-libev-ss-redir`, `ipset`) are installed automatically by `vpn-setup.bat` — no manual installation required.
+
+## Initial Setup
+
+### 1. Fill in your server credentials
+
+Open `config.bat` and set your values:
+```bat
+set "SS_SERVER=your-server-ip"
+set "SS_PORT=443"
+set "SS_PASSWORD=your-password"
+set "SS_METHOD=chacha20-ietf-poly1305"
 ```
-SS_SERVER   — IP вашего Shadowsocks-сервера
-SS_PORT     — порт (обычно 443)
-SS_PASSWORD — пароль
-SS_METHOD   — метод шифрования (например chacha20-ietf-poly1305)
-```
 
-### 2. Скачать списки доменов
+### 2. Download domain lists
 ```
 vpn-update.bat
 ```
 
-### 3. Настроить роутер одной командой
+### 3. Set up the router
 ```
 vpn-setup.bat
 ```
 
-Скрипт автоматически:
-- Установит нужные пакеты на роутере (`opkg install`)
-- Запишет `config.json` на роутер
-- Установит и включит скрипт автозапуска
-- Загрузит списки доменов
+This script connects to the router via SSH and automatically:
+- Installs `shadowsocks-libev-ss-redir` and `ipset` via `opkg`
+- Writes the Shadowsocks config to `/etc/shadowsocks-libev/config.json`
+- Installs and enables the autostart service at `/etc/init.d/shadowsocks`
+- Uploads domain lists to the router
 
-### Важно: путь dnsmasq
+### Note: dnsmasq config directory
 
-Убедитесь, что dnsmasq читает конфиги из `/tmp/dnsmasq.d/`:
+Make sure dnsmasq reads configs from `/tmp/dnsmasq.d/`:
 ```bash
 grep "conf-dir" /var/etc/dnsmasq.conf* 2>/dev/null
 ```
 
-Если в выводе другой путь — замените `/tmp/dnsmasq.d/` в `templates/shadowsocks-init.sh` на ваш, затем снова запустите `vpn-setup.bat`.
+If the output shows a different path — replace `/tmp/dnsmasq.d/` in `templates/shadowsocks-init.sh` with your path, then re-run `vpn-setup.bat`.
 
-## Использование
+## Usage
 ```
-vpn-setup.bat      # Первоначальная настройка роутера с нуля
-vpn-update.bat     # Скачать свежие списки (раз в неделю)
-vpn-start.bat      # Включить VPN
-vpn-test.bat       # Проверить доступность сайтов
-vpn-stop.bat       # Выключить VPN
+vpn-setup.bat      # First-time router setup
+vpn-update.bat     # Download fresh lists (run weekly)
+vpn-start.bat      # Enable VPN
+vpn-test.bat       # Check site availability
+vpn-stop.bat       # Disable VPN
 ```
 
-При перезагрузке роутера VPN запускается автоматически.
+VPN starts automatically on router reboot.
 
-## Добавление своих доменов
+## Adding Custom Domains
 
-Откройте `lists/my-domains.txt` и добавьте домены по одному на строку:
+Open `lists/my-domains.txt` and add domains one per line:
 ```
 x.com
 twitter.com
@@ -100,50 +108,49 @@ tiktok.com
 spotify.com
 ```
 
-Затем запустите `vpn-start.bat` для применения.
+Then run `vpn-start.bat` to apply.
 
-## Как это работает
+## How It Works
 
-1. `vpn-update.bat` скачивает актуальные списки доменов с GitHub
-2. `vpn-start.bat` загружает списки на роутер и настраивает dnsmasq + ipset + iptables
-3. DNS-запросы всех устройств перехватываются и направляются на dnsmasq роутера
-4. Когда устройство обращается к домену из списка, dnsmasq добавляет его IP в ipset
-5. iptables перенаправляет TCP-трафик к IP из ipset через Shadowsocks
-6. UDP-трафик к заблокированным IP блокируется, вынуждая приложения использовать TCP через VPN
-7. Остальной трафик идёт напрямую
+1. `vpn-update.bat` downloads up-to-date domain lists from GitHub
+2. `vpn-start.bat` pushes the Shadowsocks config and lists to the router, then configures dnsmasq + ipset + iptables
+3. DNS queries from all devices are intercepted and forwarded to the router's dnsmasq
+4. When a device resolves a domain from the list, dnsmasq adds its IP to ipset
+5. iptables redirects TCP traffic to IPs in ipset through Shadowsocks
+6. UDP traffic to listed IPs is dropped, forcing apps to fall back to TCP through VPN
+7. All other traffic goes directly
 
-## Рекомендации
+## Recommendations
 
-- **Отключите QUIC в Chrome**: `chrome://flags/#enable-quic` → Disabled. YouTube и Google используют QUIC (UDP), который не проходит через VPN.
-- **Отключите IPv6** на роутере — наш VPN работает только через IPv4, IPv6-трафик обойдёт VPN.
-- Обновляйте списки раз в неделю через `vpn-update.bat`
+- **Disable QUIC in Chrome**: `chrome://flags/#enable-quic` → Disabled. YouTube and Google use QUIC (UDP), which does not go through VPN.
+- **Disable IPv6** on the router — this VPN only handles IPv4, so IPv6 traffic will bypass it.
+- Update lists weekly with `vpn-update.bat`.
 
-## Известные ограничения
+## Known Limitations
 
-- Только TCP-трафик идёт через VPN. UDP блокируется для заблокированных сайтов, вынуждая приложения переключаться на TCP.
-- Голосовые звонки Discord (UDP) могут не работать через роутерный VPN. Для звонков используйте VPN-приложение на устройстве.
-- Первое обращение к новому домену может быть медленным — ipset наполняется при DNS-запросе.
-- При обновлении прошивки роутера все настройки слетят — потребуется повторная установка.
+- Only TCP traffic goes through VPN. UDP is blocked for listed domains, forcing apps to fall back to TCP.
+- Discord voice calls (UDP) may not work through the router VPN. Use a device-level VPN app for calls.
+- The first request to a new domain may be slow — the ipset is populated on DNS resolution.
+- Router firmware updates will wipe all settings — re-run `vpn-setup.bat` afterwards.
 
-## Источники списков
+## List Sources
 
-- [Re:filter](https://github.com/1andrevich/Re-filter-lists) — актуальный список заблокированных доменов и IP в РФ
-- [Zapret](https://github.com/Flowseal/zapret-discord-youtube) — списки замедляемых сервисов (YouTube, Discord, Google)
+- [Re:filter](https://github.com/1andrevich/Re-filter-lists) — up-to-date list of blocked domains and IPs in Russia
+- [Zapret](https://github.com/Flowseal/zapret-discord-youtube) — lists of throttled services (YouTube, Discord, Google)
 
-## Совместимость
+## Compatibility
 
-Протестировано на:
-- GL.iNet Flint 2 (GL-MT6000), OpenWrt 21.02
+**Routers:** tested on GL.iNet Flint 2 (GL-MT6000), OpenWrt 21.02. Should work on any OpenWrt router that has `shadowsocks-libev-ss-redir` available in its package repository.
 
-Должно работать на любом роутере с OpenWrt при наличии необходимых пакетов (`shadowsocks-libev-ss-redir`, `dnsmasq-full`, `ipset`).
+**OS:** scripts are written for Windows (`.bat`). The underlying commands are identical on Linux/macOS — adapting to bash is straightforward.
 
-## Благодарности
+## Credits
 
-- [bol-van/zapret](https://github.com/bol-van/zapret) — оригинальный инструмент обхода DPI
-- [Flowseal/zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube) — списки доменов
-- [1andrevich/Re-filter-lists](https://github.com/1andrevich/Re-filter-lists) — списки заблокированных доменов
-- [Admonstrator/glinet-remove-chinalock](https://github.com/Admonstrator/glinet-remove-chinalock) — смена региона GL.iNet роутера
+- [bol-van/zapret](https://github.com/bol-van/zapret) — original DPI bypass tool
+- [Flowseal/zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube) — domain lists
+- [1andrevich/Re-filter-lists](https://github.com/1andrevich/Re-filter-lists) — blocked domain lists
+- [Admonstrator/glinet-remove-chinalock](https://github.com/Admonstrator/glinet-remove-chinalock) — GL.iNet region unlock
 
-## Лицензия
+## License
 
 MIT
