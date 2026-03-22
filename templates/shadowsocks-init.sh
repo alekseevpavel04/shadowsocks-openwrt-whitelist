@@ -4,8 +4,17 @@ START=99
 start() {
     ss-redir -c /etc/shadowsocks-libev/config.json -b 0.0.0.0 -l 1080 -f /var/run/ss-redir.pid
     sleep 2
-    ipset create vpn_list hash:ip hashsize 65536 maxelem 131072 -exist
+    ipset destroy vpn_list 2>/dev/null
+    ipset create vpn_list hash:net hashsize 65536 maxelem 131072
     ipset flush vpn_list
+    ipset add vpn_list 91.108.4.0/22 -exist
+    ipset add vpn_list 91.108.8.0/22 -exist
+    ipset add vpn_list 91.108.12.0/22 -exist
+    ipset add vpn_list 91.108.16.0/22 -exist
+    ipset add vpn_list 91.108.56.0/22 -exist
+    ipset add vpn_list 149.154.160.0/20 -exist
+    ipset add vpn_list 91.105.192.0/23 -exist
+    ipset add vpn_list 185.76.151.0/24 -exist
     cat /etc/shadowsocks-libev/community.lst /etc/shadowsocks-libev/list-general.txt /etc/shadowsocks-libev/list-google.txt /etc/shadowsocks-libev/my-domains.txt 2>/dev/null | grep -v '^#' | grep -v '^$' | sort -u | awk '{print "ipset=/"$0"/vpn_list"}' > /tmp/dnsmasq.d/vpn-whitelist.conf
     /etc/init.d/dnsmasq restart
     iptables -t nat -N SS_REDIR 2>/dev/null

@@ -18,14 +18,14 @@ for %%s in (vk.com ya.ru mail.ru dzen.ru) do (
 
 echo.
 echo --- Blocked/throttled sites (via VPN) ---
-for %%s in (youtube.com discord.com instagram.com x.com tiktok.com facebook.com twitter.com spotify.com medium.com) do (
+for %%s in (youtube.com discord.com instagram.com x.com tiktok.com facebook.com twitter.com spotify.com medium.com incogniton.com) do (
     curl -so /dev/null -w "  %%s: %%{http_code} | %%{time_total}s" --max-time 10 "https://%%s"
     echo.
 )
 
 echo.
 echo --- Other popular sites ---
-for %%s in (google.com web.telegram.org github.com reddit.com twitch.tv linkedin.com) do (
+for %%s in (google.com telegram.org t.me telegram.me github.com reddit.com twitch.tv linkedin.com) do (
     curl -so /dev/null -w "  %%s: %%{http_code} | %%{time_total}s" --max-time 10 "https://%%s"
     echo.
 )
