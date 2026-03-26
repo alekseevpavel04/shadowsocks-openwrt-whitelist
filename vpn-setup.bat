@@ -33,7 +33,7 @@ echo.
 
 echo [1/4] Installing packages on router...
 echo       (may take 1-2 minutes)
-ssh -o ConnectTimeout=10 root@%ROUTER% "opkg update && opkg install shadowsocks-libev-ss-redir ipset"
+ssh -o ConnectTimeout=10 root@%ROUTER% "grep -q 'owrt' /etc/opkg/distfeeds.conf || echo 'src/gz owrt https://downloads.openwrt.org/releases/23.05.0/packages/aarch64_cortex-a53/packages' >> /etc/opkg/distfeeds.conf; opkg update && opkg install shadowsocks-libev-ss-redir ipset && mkdir -p /etc/shadowsocks-libev"
 if %errorlevel% neq 0 (
     echo       WARNING: some packages may already be installed - continuing.
 ) else (
@@ -42,7 +42,7 @@ if %errorlevel% neq 0 (
 echo.
 
 echo [2/4] Writing Shadowsocks config to router...
-echo {"server":"%SS_SERVER%","server_port":%SS_PORT%,"password":"%SS_PASSWORD%","method":"%SS_METHOD%","local_address":"0.0.0.0","local_port":1080,"timeout":300}| ssh root@%ROUTER% "cat > /etc/shadowsocks-libev/config.json"
+echo {"server":"%SS_SERVER%","server_port":%SS_PORT%,"password":"%SS_PASSWORD%","method":"%SS_METHOD%","local_address":"0.0.0.0","local_port":1080,"timeout":300}| ssh root@%ROUTER% "mkdir -p /etc/shadowsocks-libev && cat > /etc/shadowsocks-libev/config.json"
 if %errorlevel% neq 0 (
     echo       FAILED
     pause
