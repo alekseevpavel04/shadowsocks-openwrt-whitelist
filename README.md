@@ -1,155 +1,121 @@
-# Shadowsocks VPN Whitelist for OpenWrt
+# VPN Whitelist Router (OpenWrt + Xray VLESS+REALITY)
 
-Scripts for managing Shadowsocks VPN on OpenWrt routers.
-Only traffic to blocked/throttled domains goes through VPN — everything else is direct (whitelist routing).
+Selective VPN routing on an OpenWrt router. Only traffic to blocked/throttled domains goes through the VPN tunnel — everything else is direct.
 
-## Features
-
-- Whitelist routing — only listed domains go through VPN
-- Auto-updating domain lists from GitHub (Re:filter + Zapret)
-- Custom domain list (`my-domains.txt`) that is never overwritten on update
-- VPN auto-start on router reboot
-- DNS interception — all devices on the network use the router's dnsmasq
-- UDP blocking for listed domains — forces TCP through VPN (fixes issues with mobile apps)
-- Site availability test
-
-## Structure
-```
-shadowsocks-vpn/
-├── vpn-setup.bat          # First-time router setup
-├── vpn-start.bat          # Enable VPN and push lists to router
-├── vpn-stop.bat           # Disable VPN
-├── vpn-update.bat         # Download fresh lists from GitHub
-├── vpn-test.bat           # Site availability test
-├── config.example.bat     # Config template (copy to config.bat)
-├── config.bat             # Your server credentials (not in git)
-├── .gitignore
-├── README.md
-├── templates/
-│   └── shadowsocks-init.sh    # Router autostart service script
-└── lists/
-    ├── community.lst      # [auto] Blocked services list (Re:filter)
-    ├── list-general.txt   # [auto] Throttled domains (Zapret)
-    ├── list-google.txt    # [auto] Google/YouTube domains (Zapret)
-    └── my-domains.txt     # Your custom domains (edit manually)
-```
-
-## Requirements
-
-**Router:**
-- OpenWrt (tested on GL.iNet Flint 2 / GL-MT6000)
-- SSH root access (enabled by default on most OpenWrt routers)
-- Internet access for package installation during first setup
-
-**Computer:**
-- Windows 10/11 — scripts are `.bat` files
-- SSH client and `curl` — built into Windows 10/11, no extra installation needed
-
-> **Linux/macOS:** `.bat` files won't run directly, but all underlying commands (ssh, scp, curl) are standard and can easily be adapted to bash.
-
-Router packages (`shadowsocks-libev-ss-redir`, `ipset`) are installed automatically by `vpn-setup.bat` — no manual installation required.
-
-## Initial Setup
-
-### 1. Fill in your server credentials
-
-Open `config.bat` and set your values:
-```bat
-set "SS_SERVER=your-server-ip"
-set "SS_PORT=443"
-set "SS_PASSWORD=your-password"
-set "SS_METHOD=chacha20-ietf-poly1305"
-```
-
-### 2. Download domain lists
-```
-vpn-update.bat
-```
-
-### 3. Set up the router
-```
-vpn-setup.bat
-```
-
-This script connects to the router via SSH and automatically:
-- Installs `shadowsocks-libev-ss-redir` and `ipset` via `opkg`
-- Writes the Shadowsocks config to `/etc/shadowsocks-libev/config.json`
-- Installs and enables the autostart service at `/etc/init.d/shadowsocks`
-- Uploads domain lists to the router
-
-### Note: dnsmasq config directory
-
-Make sure dnsmasq reads configs from `/tmp/dnsmasq.d/`:
-```bash
-grep "conf-dir" /var/etc/dnsmasq.conf* 2>/dev/null
-```
-
-If the output shows a different path — replace `/tmp/dnsmasq.d/` in `templates/shadowsocks-init.sh` with your path, then re-run `vpn-setup.bat`.
-
-## Usage
-```
-vpn-setup.bat      # First-time router setup
-vpn-update.bat     # Download fresh lists (run weekly)
-vpn-start.bat      # Enable VPN
-vpn-test.bat       # Check site availability
-vpn-stop.bat       # Disable VPN
-```
-
-VPN starts automatically on router reboot.
-
-## Adding Custom Domains
-
-Open `lists/my-domains.txt` and add domains one per line:
-```
-x.com
-twitter.com
-twimg.com
-tiktok.com
-spotify.com
-```
-
-Then run `vpn-start.bat` to apply.
+**Protocol:** Xray VLESS+REALITY — indistinguishable from regular HTTPS, bypasses DPI (ТСПУ).
 
 ## How It Works
 
-1. `vpn-update.bat` downloads up-to-date domain lists from GitHub
-2. `vpn-start.bat` pushes the Shadowsocks config and lists to the router, then configures dnsmasq + ipset + iptables
-3. DNS queries from all devices are intercepted and forwarded to the router's dnsmasq
-4. When a device resolves a domain from the list, dnsmasq adds its IP to ipset
-5. iptables redirects TCP traffic to IPs in ipset through Shadowsocks
-6. UDP traffic to listed IPs is dropped, forcing apps to fall back to TCP through VPN
-7. All other traffic goes directly
+1. `vpn-update.bat` downloads fresh domain lists from GitHub
+2. `vpn-start.bat` pushes config and lists to the router, configures dnsmasq + ipset + iptables
+3. DNS queries from all devices are intercepted by the router's dnsmasq
+4. When a device resolves a listed domain, dnsmasq adds its IP to ipset
+5. iptables redirects TCP traffic to listed IPs through Xray on port 1080
+6. Xray tunnels the traffic via VLESS+REALITY to your VPS
+7. UDP to listed IPs is dropped, forcing apps to fall back to TCP
+
+## Requirements
+
+**Router:** OpenWrt (tested on GL.iNet Flint 2 / GL-MT6000, aarch64_cortex-a53), SSH root access
+
+**VPS:** Any Linux VPS outside Russia (Vultr, Hetzner etc.) — Xray is installed automatically by `vpn-server-setup.bat`
+
+**Computer:** Windows 10/11 (SSH + curl built in)
+
+## Setup
+
+### First time
+
+```
+1. Deploy VPS: Vultr → Cloud Compute (Shared CPU), Ubuntu 24.04, Amsterdam/Frankfurt, $6/mo
+2. Copy config.example.bat → config.bat, set XRAY_SERVER to the VPS IP
+3. vpn-server-setup.bat   — installs Xray on VPS, prints UUID + PUBLIC_KEY
+4. Fill UUID + PUBLIC_KEY into config.bat
+5. vpn-addkey-server.bat  — setup SSH key for VPS (no more password prompts)
+6. vpn-addkey.bat         — setup SSH key for router
+7. vpn-update.bat         — download domain lists
+8. vpn-setup.bat          — install Xray on router, upload config
+9. vpn-start.bat          — enable VPN
+```
+
+> **Note:** On Ubuntu VPS, UFW is enabled by default and blocks all ports except 22.
+> `vpn-server-setup.bat` opens port 443 automatically. If you set up the server manually,
+> run: `ufw allow 443/tcp && ufw reload`
+
+### Daily use
+
+```
+vpn-start.bat     — enable VPN
+vpn-stop.bat      — disable VPN
+vpn-update.bat    — refresh domain lists (weekly)
+vpn-test.bat      — check site availability
+```
+
+## Adding Custom Domains
+
+Edit `lists/my-domains.txt`, one domain per line:
+```
+x.com
+twitter.com
+spotify.com
+```
+Then run `vpn-start.bat` to apply.
+
+## Structure
+
+```
+config.bat / config.example.bat   — VPS credentials (config.bat not in git)
+server-setup.sh                   — Xray install script for VPS (run via vpn-server-setup.bat)
+vpn-server-setup.bat              — one-time VPS setup
+vpn-setup.bat                     — one-time router setup
+vpn-start.bat                     — enable VPN
+vpn-stop.bat                      — disable VPN
+vpn-update.bat                    — refresh lists
+vpn-test.bat                      — test sites
+vpn-addkey.bat                    — setup SSH key for router (no more password prompts)
+vpn-addkey-server.bat             — setup SSH key for VPS
+templates/xray-router.json        — Xray config template for router
+templates/shadowsocks-init.sh     — router autostart service
+lists/                            — domain lists
+```
 
 ## Recommendations
 
-- **Disable QUIC in Chrome**: `chrome://flags/#enable-quic` → Disabled. YouTube and Google use QUIC (UDP), which does not go through VPN.
-- **Disable IPv6** on the router — this VPN only handles IPv4, so IPv6 traffic will bypass it.
-- Update lists weekly with `vpn-update.bat`.
+- **Disable QUIC in Chrome:** `chrome://flags/#enable-quic` → Disabled (YouTube uses QUIC/UDP which bypasses the VPN)
+- **Disable IPv6** on the router — only IPv4 is handled
+- Update lists weekly with `vpn-update.bat`
+- Router firmware updates wipe settings — re-run `vpn-setup.bat` afterwards
 
 ## Known Limitations
 
-- Only TCP traffic goes through VPN. UDP is blocked for listed domains, forcing apps to fall back to TCP.
-- Discord voice calls (UDP) may not work through the router VPN. Use a device-level VPN app for calls.
-- The first request to a new domain may be slow — the ipset is populated on DNS resolution.
-- Router firmware updates will wipe all settings — re-run `vpn-setup.bat` afterwards.
+- Only TCP traffic goes through VPN. UDP is dropped for listed domains (forces TCP fallback).
+- Discord voice calls (UDP) won't work through router VPN — use a device-level VPN app for calls.
+- First request to a new domain may be slow — ipset is populated on DNS resolution.
+
+## Detection Risks
+
+### What your ISP cannot see
+- That this is a VPN. REALITY performs a real TLS 1.3 handshake (SNI: `www.microsoft.com`, fingerprint: Chrome). The traffic is cryptographically indistinguishable from regular HTTPS browsing.
+- Which sites you visit through the tunnel.
+- Whether you are bypassing blocks — there are no grounds for automated blocking (unlike the IP ranges of known commercial VPN services).
+
+### What your ISP can see
+- That your device connects to a foreign IP (your VPS) on port 443.
+- The VPS IP belongs to a hosting provider (Vultr/Hetzner), not a Microsoft CDN. A sophisticated DPI could theoretically flag the SNI/IP mismatch — but in practice, random personal VPS IPs are not specifically targeted.
+- **Your traffic physically crosses the border** — this is counted as cross-border traffic regardless of protocol obfuscation.
+
+### Cross-border traffic billing (proposed legislation)
+Russian ISPs may eventually be required to pay the state per GB of outgoing cross-border traffic and pass the costs to users. If this happens:
+- Traffic to your VPS abroad counts as cross-border — even though the ISP cannot identify it as VPN traffic.
+- With selective routing (only blocked domains go through the tunnel), the total affected volume is minimal — most traffic stays domestic.
+
+### Connecting directly from a mobile device (without the router)
+The same analysis applies to mobile carriers. When using a VLESS client app (v2rayNG, Shadowrocket) directly on a phone, the carrier sees connections to a foreign IP. Using selective routing rules in the app reduces the cross-border volume.
 
 ## List Sources
 
-- [Re:filter](https://github.com/1andrevich/Re-filter-lists) — up-to-date list of blocked domains and IPs in Russia
-- [Zapret](https://github.com/Flowseal/zapret-discord-youtube) — lists of throttled services (YouTube, Discord, Google)
-
-## Compatibility
-
-**Routers:** tested on GL.iNet Flint 2 (GL-MT6000), OpenWrt 21.02. Should work on any OpenWrt router that has `shadowsocks-libev-ss-redir` available in its package repository.
-
-**OS:** scripts are written for Windows (`.bat`). The underlying commands are identical on Linux/macOS — adapting to bash is straightforward.
-
-## Credits
-
-- [bol-van/zapret](https://github.com/bol-van/zapret) — original DPI bypass tool
-- [Flowseal/zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube) — domain lists
-- [1andrevich/Re-filter-lists](https://github.com/1andrevich/Re-filter-lists) — blocked domain lists
-- [Admonstrator/glinet-remove-chinalock](https://github.com/Admonstrator/glinet-remove-chinalock) — GL.iNet region unlock
+- [Re:filter](https://github.com/1andrevich/Re-filter-lists) — blocked domains/IPs in Russia
+- [Zapret](https://github.com/Flowseal/zapret-discord-youtube) — throttled services (YouTube, Discord, Google)
 
 ## License
 

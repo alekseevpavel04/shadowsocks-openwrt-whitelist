@@ -1,6 +1,6 @@
 @echo off
 echo ========================================
-echo   VPN - FIRST TIME SETUP
+echo   VPN - FIRST TIME SETUP (router)
 echo ========================================
 echo.
 
@@ -14,9 +14,9 @@ if not exist "%~dp0config.bat" (
 )
 call "%~dp0config.bat"
 
-if "%SS_SERVER%"=="YOUR_SERVER_IP" (
+if "%XRAY_SERVER%"=="YOUR_VPS_IP" (
     echo ERROR: config.bat has not been filled in.
-    echo Open config.bat and set SS_SERVER, SS_PORT, SS_PASSWORD, SS_METHOD.
+    echo Run vpn-server-setup.bat first, then fill in config.bat.
     echo.
     pause
     exit /b 1
@@ -27,13 +27,11 @@ set "LISTS_DIR=%~dp0lists"
 set "TEMPLATES_DIR=%~dp0templates"
 
 echo   Router : %ROUTER%
-echo   Server : %SS_SERVER%:%SS_PORT%
-echo   Method : %SS_METHOD%
+echo   Server : %XRAY_SERVER%:443
 echo.
 
-echo [1/5] Installing packages on router...
-echo       (may take 1-2 minutes)
-ssh -o ConnectTimeout=10 root@%ROUTER% "grep -q 'owrt' /etc/opkg/distfeeds.conf || echo 'src/gz owrt https://downloads.openwrt.org/releases/23.05.0/packages/aarch64_cortex-a53/packages' >> /etc/opkg/distfeeds.conf; opkg update && opkg install shadowsocks-libev-ss-redir ipset && mkdir -p /etc/shadowsocks-libev"
+echo [1/4] Installing dependencies on router...
+ssh -o ConnectTimeout=10 root@%ROUTER% "opkg update && opkg install ipset unzip"
 if %errorlevel% neq 0 (
     echo       WARNING: some packages may already be installed - continuing.
 ) else (
@@ -41,14 +39,9 @@ if %errorlevel% neq 0 (
 )
 echo.
 
-echo [2/5] Installing shadowsocks-rust (sslocal) on router...
-echo       (anti-detection replacement for ss-redir)
-ssh root@%ROUTER% "which sslocal >/dev/null 2>&1 && echo 'sslocal already installed, skipping.' || (opkg install xz 2>/dev/null; wget -qO /tmp/ss-rust.tar.xz https://github.com/shadowsocks/shadowsocks-rust/releases/download/v1.21.2/shadowsocks-v1.21.2.aarch64-unknown-linux-musl.tar.xz && mkdir -p /tmp/ssrust && xz -dc /tmp/ss-rust.tar.xz | tar x -C /tmp/ssrust/ && SSBIN=$(find /tmp/ssrust -name sslocal 2>/dev/null | head -1) && [ -n \"$SSBIN\" ] && cp \"$SSBIN\" /usr/bin/sslocal && chmod +x /usr/bin/sslocal && sslocal --version && echo 'installed OK') || echo 'WARN: sslocal install failed'"
-echo       OK
-echo.
-
-echo [3/5] Writing Shadowsocks config to router...
-echo {"server":"%SS_SERVER%","server_port":%SS_PORT%,"password":"%SS_PASSWORD%","method":"%SS_METHOD%","timeout":300}| ssh root@%ROUTER% "mkdir -p /etc/shadowsocks-libev && cat > /etc/shadowsocks-libev/config.json"
+echo [2/4] Installing Xray on router...
+echo       (downloading arm64 binary, ~10 MB)
+ssh root@%ROUTER% "[ -x /usr/local/bin/xray ] && /usr/local/bin/xray version && echo 'xray already installed, skipping.' || (wget -qO /tmp/xray.zip 'https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-arm64-v8a.zip' && mkdir -p /tmp/xray && unzip -o /tmp/xray.zip xray -d /tmp/xray/ && cp /tmp/xray/xray /usr/local/bin/xray && chmod +x /usr/local/bin/xray && /usr/local/bin/xray version && echo 'installed OK')"
 if %errorlevel% neq 0 (
     echo       FAILED
     pause
@@ -57,9 +50,22 @@ if %errorlevel% neq 0 (
 echo       OK
 echo.
 
-echo [4/5] Installing autostart service...
+echo [3/4] Uploading xray config to router...
+set "TMPCONFIG=%TEMP%\xray-router.json"
+powershell -Command "$c=(Get-Content '%TEMPLATES_DIR%\xray-router.json') -replace '__SERVER_IP__','%XRAY_SERVER%' -replace '__UUID__','%XRAY_UUID%' -replace '__PUBLIC_KEY__','%XRAY_PUBLIC_KEY%'; [System.IO.File]::WriteAllLines('%TMPCONFIG%',$c)"
+ssh root@%ROUTER% "mkdir -p /etc/xray"
+scp -O "%TMPCONFIG%" root@%ROUTER%:/etc/xray/config.json
+if %errorlevel% neq 0 (
+    echo       FAILED
+    pause
+    exit /b 1
+)
+echo       OK
+echo.
+
+echo [4/4] Installing autostart service...
 scp -O "%TEMPLATES_DIR%\shadowsocks-init.sh" root@%ROUTER%:/etc/init.d/shadowsocks
-ssh root@%ROUTER% "sed -i 's/__SERVER_IP__/%SS_SERVER%/g' /etc/init.d/shadowsocks && chmod +x /etc/init.d/shadowsocks && /etc/init.d/shadowsocks enable && echo 'Service enabled.'"
+ssh root@%ROUTER% "sed -i 's/__SERVER_IP__/%XRAY_SERVER%/g' /etc/init.d/shadowsocks && chmod +x /etc/init.d/shadowsocks && /etc/init.d/shadowsocks enable && echo 'Service enabled.'"
 if %errorlevel% neq 0 (
     echo       FAILED
     pause

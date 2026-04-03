@@ -2,12 +2,10 @@
 START=99
 
 start() {
-    if which sslocal >/dev/null 2>&1; then
-        (sslocal --protocol redir -c /etc/shadowsocks-libev/config.json -b 0.0.0.0:1080 > /dev/null 2>&1 &)
-    else
-        ss-redir -c /etc/shadowsocks-libev/config.json -b 0.0.0.0 -l 1080 -f /var/run/ss-redir.pid
-    fi
+    /usr/local/bin/xray run -c /etc/xray/config.json > /dev/null 2>&1 &
     sleep 2
+    iptables -t nat -F SS_REDIR 2>/dev/null
+    iptables -D FORWARD -p udp -m set --match-set vpn_list dst -j DROP 2>/dev/null
     ipset destroy vpn_list 2>/dev/null
     ipset create vpn_list hash:net hashsize 65536 maxelem 131072
     ipset flush vpn_list
@@ -41,8 +39,7 @@ start() {
 }
 
 stop() {
-    killall sslocal 2>/dev/null
-    killall ss-redir 2>/dev/null
+    killall xray 2>/dev/null
     iptables -t nat -D PREROUTING -p tcp -j SS_REDIR 2>/dev/null
     iptables -t nat -F SS_REDIR 2>/dev/null
     iptables -t nat -X SS_REDIR 2>/dev/null
