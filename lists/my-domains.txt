@@ -18,6 +18,7 @@ api.anthropic.com
 shikimori.one
 onlinesim.io
 incogniton.com
+mewgenics.wiki.gg
 
 t.me
 tg.dev

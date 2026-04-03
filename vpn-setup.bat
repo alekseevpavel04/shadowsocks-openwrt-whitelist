@@ -31,7 +31,7 @@ echo   Server : %SS_SERVER%:%SS_PORT%
 echo   Method : %SS_METHOD%
 echo.
 
-echo [1/4] Installing packages on router...
+echo [1/5] Installing packages on router...
 echo       (may take 1-2 minutes)
 ssh -o ConnectTimeout=10 root@%ROUTER% "grep -q 'owrt' /etc/opkg/distfeeds.conf || echo 'src/gz owrt https://downloads.openwrt.org/releases/23.05.0/packages/aarch64_cortex-a53/packages' >> /etc/opkg/distfeeds.conf; opkg update && opkg install shadowsocks-libev-ss-redir ipset && mkdir -p /etc/shadowsocks-libev"
 if %errorlevel% neq 0 (
@@ -41,8 +41,14 @@ if %errorlevel% neq 0 (
 )
 echo.
 
-echo [2/4] Writing Shadowsocks config to router...
-echo {"server":"%SS_SERVER%","server_port":%SS_PORT%,"password":"%SS_PASSWORD%","method":"%SS_METHOD%","local_address":"0.0.0.0","local_port":1080,"timeout":300}| ssh root@%ROUTER% "mkdir -p /etc/shadowsocks-libev && cat > /etc/shadowsocks-libev/config.json"
+echo [2/5] Installing shadowsocks-rust (sslocal) on router...
+echo       (anti-detection replacement for ss-redir)
+ssh root@%ROUTER% "which sslocal >/dev/null 2>&1 && echo 'sslocal already installed, skipping.' || (opkg install xz 2>/dev/null; wget -qO /tmp/ss-rust.tar.xz https://github.com/shadowsocks/shadowsocks-rust/releases/download/v1.21.2/shadowsocks-v1.21.2.aarch64-unknown-linux-musl.tar.xz && mkdir -p /tmp/ssrust && xz -dc /tmp/ss-rust.tar.xz | tar x -C /tmp/ssrust/ && SSBIN=$(find /tmp/ssrust -name sslocal 2>/dev/null | head -1) && [ -n \"$SSBIN\" ] && cp \"$SSBIN\" /usr/bin/sslocal && chmod +x /usr/bin/sslocal && sslocal --version && echo 'installed OK') || echo 'WARN: sslocal install failed'"
+echo       OK
+echo.
+
+echo [3/5] Writing Shadowsocks config to router...
+echo {"server":"%SS_SERVER%","server_port":%SS_PORT%,"password":"%SS_PASSWORD%","method":"%SS_METHOD%","timeout":300}| ssh root@%ROUTER% "mkdir -p /etc/shadowsocks-libev && cat > /etc/shadowsocks-libev/config.json"
 if %errorlevel% neq 0 (
     echo       FAILED
     pause
@@ -51,7 +57,7 @@ if %errorlevel% neq 0 (
 echo       OK
 echo.
 
-echo [3/4] Installing autostart service...
+echo [4/5] Installing autostart service...
 scp -O "%TEMPLATES_DIR%\shadowsocks-init.sh" root@%ROUTER%:/etc/init.d/shadowsocks
 ssh root@%ROUTER% "sed -i 's/__SERVER_IP__/%SS_SERVER%/g' /etc/init.d/shadowsocks && chmod +x /etc/init.d/shadowsocks && /etc/init.d/shadowsocks enable && echo 'Service enabled.'"
 if %errorlevel% neq 0 (
@@ -62,7 +68,7 @@ if %errorlevel% neq 0 (
 echo       OK
 echo.
 
-echo [4/4] Uploading domain lists...
+echo [5/5] Uploading domain lists...
 if exist "%LISTS_DIR%\list-general.txt" (
     scp -O "%LISTS_DIR%\community.lst" "%LISTS_DIR%\list-general.txt" "%LISTS_DIR%\list-google.txt" "%LISTS_DIR%\my-domains.txt" root@%ROUTER%:/etc/shadowsocks-libev/ 2>nul
     echo       OK
