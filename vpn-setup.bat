@@ -26,8 +26,12 @@ set "ROUTER=192.168.8.1"
 set "LISTS_DIR=%~dp0lists"
 set "TEMPLATES_DIR=%~dp0templates"
 
+:: Use relay if configured, otherwise connect directly to Amsterdam VPS
+set "CONNECT_SERVER=%XRAY_SERVER%"
+if not "%RELAY_SERVER%"=="" if not "%RELAY_SERVER%"=="YOUR_RELAY_IP" set "CONNECT_SERVER=%RELAY_SERVER%"
+
 echo   Router : %ROUTER%
-echo   Server : %XRAY_SERVER%:443
+echo   Server : %CONNECT_SERVER%:443
 echo.
 
 echo [1/4] Installing dependencies on router...
@@ -52,7 +56,7 @@ echo.
 
 echo [3/4] Uploading xray config to router...
 set "TMPCONFIG=%TEMP%\xray-router.json"
-powershell -Command "$c=(Get-Content '%TEMPLATES_DIR%\xray-router.json') -replace '__SERVER_IP__','%XRAY_SERVER%' -replace '__UUID__','%XRAY_UUID%' -replace '__PUBLIC_KEY__','%XRAY_PUBLIC_KEY%'; [System.IO.File]::WriteAllLines('%TMPCONFIG%',$c)"
+powershell -Command "$c=(Get-Content '%TEMPLATES_DIR%\xray-router.json') -replace '__SERVER_IP__','%CONNECT_SERVER%' -replace '__UUID__','%XRAY_UUID%' -replace '__PUBLIC_KEY__','%XRAY_PUBLIC_KEY%'; [System.IO.File]::WriteAllLines('%TMPCONFIG%',$c)"
 ssh root@%ROUTER% "mkdir -p /etc/xray"
 scp -O "%TMPCONFIG%" root@%ROUTER%:/etc/xray/config.json
 if %errorlevel% neq 0 (
@@ -65,7 +69,7 @@ echo.
 
 echo [4/4] Installing autostart service...
 scp -O "%TEMPLATES_DIR%\shadowsocks-init.sh" root@%ROUTER%:/etc/init.d/shadowsocks
-ssh root@%ROUTER% "sed -i 's/__SERVER_IP__/%XRAY_SERVER%/g' /etc/init.d/shadowsocks && chmod +x /etc/init.d/shadowsocks && /etc/init.d/shadowsocks enable && echo 'Service enabled.'"
+ssh root@%ROUTER% "sed -i 's/__SERVER_IP__/%CONNECT_SERVER%/g' /etc/init.d/shadowsocks && chmod +x /etc/init.d/shadowsocks && /etc/init.d/shadowsocks enable && echo 'Service enabled.'"
 if %errorlevel% neq 0 (
     echo       FAILED
     pause

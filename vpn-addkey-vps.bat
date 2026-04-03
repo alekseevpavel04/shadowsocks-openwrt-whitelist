@@ -1,6 +1,6 @@
 @echo off
 echo ========================================
-echo   VPN - SETUP SSH KEY FOR SERVER (one-time)
+echo   VPN - SETUP SSH KEY FOR VPS (one-time)
 echo ========================================
 echo.
 echo   After this you will never be asked for

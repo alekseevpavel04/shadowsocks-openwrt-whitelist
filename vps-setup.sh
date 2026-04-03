@@ -1,6 +1,6 @@
 #!/bin/bash
 # Xray VLESS+REALITY server setup
-# Run on a fresh Ubuntu VPS: bash server-setup.sh
+# Run on a fresh Ubuntu VPS: bash vps-setup.sh
 set -e
 
 echo "========================================"
