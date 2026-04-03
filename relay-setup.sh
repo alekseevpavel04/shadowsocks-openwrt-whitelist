@@ -42,14 +42,14 @@ systemctl restart vpn-relay
 echo "      OK"
 echo ""
 
-echo "[3/3] Opening port 443 in UFW..."
-if ufw status 2>/dev/null | grep -q "Status: active"; then
-    ufw allow 443/tcp
-    ufw reload
-    echo "      OK"
-else
-    echo "      UFW not active, skipping."
-fi
+echo "[3/3] Configuring UFW firewall..."
+apt-get install -y -qq ufw
+ufw default deny incoming
+ufw default allow outgoing
+ufw allow 22/tcp
+ufw allow 443/tcp
+ufw --force enable
+echo "      OK (22+443 allowed, all else blocked)"
 echo ""
 
 sleep 2
