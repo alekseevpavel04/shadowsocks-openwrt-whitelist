@@ -1,5 +1,6 @@
 #!/bin/sh /etc/rc.common
 START=99
+STOP=10
 
 start() {
     /usr/local/bin/xray run -c /etc/xray/config.json > /dev/null 2>&1 &

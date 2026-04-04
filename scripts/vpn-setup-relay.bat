@@ -5,12 +5,12 @@ echo ========================================
 echo.
 
 :: Load config
-if not exist "%~dp0config.bat" (
+if not exist "%~dp0..\config.bat" (
     echo ERROR: config.bat not found.
     pause
     exit /b 1
 )
-call "%~dp0config.bat"
+call "%~dp0..\config.bat"
 
 if "%RELAY_SERVER%"=="" (
     echo ERROR: Set RELAY_SERVER in config.bat first.
@@ -35,7 +35,7 @@ pause
 echo [1/2] Uploading relay setup script...
 scp -O "%~dp0relay-setup.sh" root@%RELAY_SERVER%:/tmp/relay-setup.sh
 if %errorlevel% neq 0 (
-    echo       FAILED - check SSH access (run vpn-addkey-relay.bat first)
+    echo       FAILED - check SSH access (run option [9] SSH key for relay first)
     pause
     exit /b 1
 )
@@ -56,7 +56,7 @@ if %errorlevel% neq 0 (
 echo.
 echo ========================================
 echo   Done.
-echo   Run vpn-start.bat to apply.
+echo   Run option [1] Start VPN to apply.
 echo ========================================
 echo.
 pause

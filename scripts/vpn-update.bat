@@ -5,7 +5,7 @@ echo   VPN - UPDATE LISTS
 echo ========================================
 echo.
 
-set "LISTS_DIR=%~dp0lists"
+set "LISTS_DIR=%~dp0..\lists"
 set "OK=1"
 
 echo [1/3] Re:filter - community.lst ...
@@ -24,7 +24,7 @@ echo.
 if "%OK%"=="1" (
     echo ========================================
     echo   All lists updated!
-    echo   Run vpn-start.bat to apply.
+    echo   Run option [1] Start VPN to apply.
     echo ========================================
 ) else (
     echo ========================================

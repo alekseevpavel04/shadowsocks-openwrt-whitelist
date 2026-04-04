@@ -6,11 +6,11 @@ echo   Block: everything else
 echo ========================================
 echo.
 
-if not exist "%~dp0config.bat" (
+if not exist "%~dp0..\config.bat" (
     echo ERROR: config.bat not found.
     pause & exit /b 1
 )
-call "%~dp0config.bat"
+call "%~dp0..\config.bat"
 
 if "%RELAY_SERVER%"=="" (echo ERROR: RELAY_SERVER not set in config.bat & pause & exit /b 1)
 if "%RELAY_SERVER%"=="YOUR_RELAY_IP" (echo ERROR: RELAY_SERVER not set in config.bat & pause & exit /b 1)

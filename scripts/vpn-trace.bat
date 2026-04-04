@@ -27,11 +27,11 @@ echo   PC -^> RU relay -^> Amsterdam -^> internet
 echo ========================================
 echo.
 
-if not exist "%~dp0config.bat" (
+if not exist "%~dp0..\config.bat" (
     echo ERROR: config.bat not found.
     exit /b 1
 )
-call "%~dp0config.bat"
+call "%~dp0..\config.bat"
 
 set "ROUTER=192.168.8.1"
 set ERRORS=0
@@ -94,7 +94,7 @@ if %errorlevel%==0 (
 ) else (
     echo   FAIL  SSH to %RELAY_SERVER% unreachable
     echo         Check: RELAY_SERVER in config.bat (use IPv4, not IPv6^)
-    echo         Check: run vpn-addkey-relay.bat if SSH key not set up
+    echo         Check: run option [9] SSH key for relay if not set up
     set /A ERRORS+=1
     echo.
     goto :relay_tcp
@@ -148,11 +148,11 @@ if "!XRAY_S!"=="RUNNING" (
     echo   OK    Xray process     : RUNNING
 ) else (
     echo   FAIL  Xray process     : STOPPED
-    echo         Run vpn-start.bat first
+    echo         Run option [1] Start VPN first
     set /A ERRORS+=1
 )
 
-:: Check using active connections (ss) — nc -z is not supported on OpenWrt BusyBox
+:: Check using active connections (ss) - nc -z is not supported on OpenWrt BusyBox
 ssh -o ConnectTimeout=8 root@%ROUTER% "ss -tn 2>/dev/null | grep -c '!CONNECT!:443'" > "%T%" 2>&1
 set /p RCONNS=<"%T%"
 if "!RCONNS!"=="0" (
@@ -213,4 +213,3 @@ if "!EXIT_IP!"=="" (
     )
 )
 echo.
-pause

@@ -5,14 +5,14 @@ echo ========================================
 echo.
 
 :: Load config
-if not exist "%~dp0config.bat" (
+if not exist "%~dp0..\config.bat" (
     echo ERROR: config.bat not found.
     echo Copy config.example.bat to config.bat and set XRAY_SERVER.
     echo.
     pause
     exit /b 1
 )
-call "%~dp0config.bat"
+call "%~dp0..\config.bat"
 
 if "%XRAY_SERVER%"=="YOUR_VPS_IP" (
     echo ERROR: Set XRAY_SERVER in config.bat first.
@@ -54,9 +54,9 @@ echo ========================================
 echo   Done. Now:
 echo   1. Copy XRAY_UUID and XRAY_PUBLIC_KEY
 echo      from the output above into config.bat
-echo   2. Run vpn-setup-relay.bat  (relay setup)
-echo   3. Run vpn-setup.bat        (router setup)
-echo   4. Run vpn-start.bat        (start VPN)
+echo   2. Option [B] Setup relay  (relay setup)
+echo   3. Option [C] Setup router (router setup)
+echo   4. Option [1] Start VPN    (start VPN)
 echo ========================================
 echo.
 pause

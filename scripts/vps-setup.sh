@@ -25,8 +25,9 @@ KEYS=$($XRAY_BIN x25519)
 PRIVATE_KEY=$(echo "$KEYS" | grep -i "private" | awk '{print $NF}')
 PUBLIC_KEY=$(echo "$KEYS"  | grep -i "public"  | awk '{print $NF}')
 UUID=$($XRAY_BIN uuid)
+SHORT_ID=$(openssl rand -hex 4)
 
-if [ -z "$PRIVATE_KEY" ] || [ -z "$PUBLIC_KEY" ]; then
+if [ -z "$PRIVATE_KEY" ] || [ -z "$PUBLIC_KEY" ] || [ -z "$SHORT_ID" ]; then
     echo "ERROR: Failed to parse keys. Raw xray x25519 output:"
     echo "$KEYS"
     exit 1
@@ -55,7 +56,7 @@ cat > /usr/local/etc/xray/config.json << EOF
         "dest": "www.microsoft.com:443",
         "serverNames": ["www.microsoft.com"],
         "privateKey": "$PRIVATE_KEY",
-        "shortIds": [""]
+        "shortIds": ["$SHORT_ID"]
       }
     }
   }],

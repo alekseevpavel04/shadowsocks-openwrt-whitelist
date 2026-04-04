@@ -10,12 +10,12 @@ echo   You will be asked for the password ONCE now.
 echo.
 
 :: Load config
-if not exist "%~dp0config.bat" (
+if not exist "%~dp0..\config.bat" (
     echo ERROR: config.bat not found.
     pause
     exit /b 1
 )
-call "%~dp0config.bat"
+call "%~dp0..\config.bat"
 
 if "%XRAY_SERVER%"=="YOUR_VPS_IP" (
     echo ERROR: Set XRAY_SERVER in config.bat first.

@@ -1,11 +1,11 @@
 @echo off
 setlocal EnableDelayedExpansion
 
-if not exist "%~dp0config.bat" (
+if not exist "%~dp0..\config.bat" (
     echo ERROR: config.bat not found.
     pause & exit /b 1
 )
-call "%~dp0config.bat"
+call "%~dp0..\config.bat"
 
 :: Use relay if configured, otherwise direct to Amsterdam
 set "HOST=%XRAY_SERVER%"
