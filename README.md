@@ -130,7 +130,25 @@ Russian ISPs may eventually be required to pay the state per GB of outgoing cros
 - Without relay: traffic to the VPS abroad counts, but with selective routing the volume is minimal.
 
 ### Connecting directly from a mobile device (without the router)
-Use `[6] Mobile config` to get the VLESS URL for Shadowrocket (iOS) or v2rayNG (Android).
+
+> **Security warning (April 2026):** all popular Android VLESS clients
+> (`v2rayNG`, `NekoBox`, `Hiddify`, `Happ`, `v2RayTun`, `V2BOX`, `Exclave`,
+> `Npv Tunnel`) ship with an **unauthenticated localhost SOCKS5 proxy**.
+> Any other app on the device — including spy modules embedded in Russian
+> applications (Yandex, MAX, Sber, Gosuslugi, Wildberries, Ozon) — can
+> connect to that proxy, bypass per-app split tunneling and Knox/Shelter
+> private spaces, and learn the VPN exit IP. Once leaked, the IP gets
+> blocked by RKN. **As of April 2026 there is no patched Android client.**
+>
+> **Mitigation:** prefer connecting through this router's wifi instead of
+> running a VLESS client directly on the phone. The router uses transparent
+> TPROXY (not SOCKS5) and is not affected by the same attack. If you must
+> use a mobile client, iOS Shadowrocket is not on the public list of
+> vulnerable clients (but it is closed source — no guarantees). Do not
+> install any VLESS client on a phone that also has Russian state-adjacent
+> apps installed. Source: `runetfreedom` on Habr, April 2026.
+
+Use `[6] Mobile config` to get the VLESS URL for Shadowrocket (iOS).
 The same REALITY obfuscation applies — carrier sees HTTPS to `www.microsoft.com`.
 
 ## List Sources

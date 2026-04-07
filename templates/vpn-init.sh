@@ -3,6 +3,12 @@ START=99
 STOP=10
 
 start() {
+    # Kill leftovers from old shadowsocks-libev / shadowsocks-rust setup.
+    # The native /etc/init.d/shadowsocks-libev was disabled manually,
+    # but this is a safety net in case it ever respawns ss-local.
+    killall ss-local 2>/dev/null
+    killall sslocal 2>/dev/null
+    killall ss-redir 2>/dev/null
     /usr/local/bin/xray run -c /etc/xray/config.json > /dev/null 2>&1 &
     sleep 2
     iptables -t nat -F SS_REDIR 2>/dev/null
@@ -34,6 +40,13 @@ start() {
     iptables -t nat -A SS_REDIR -d 240.0.0.0/4 -j RETURN
     iptables -t nat -A SS_REDIR -m set --match-set vpn_list dst -p tcp -j REDIRECT --to-ports 1080
     iptables -t nat -A PREROUTING -p tcp -j SS_REDIR
+    # Block direct LAN access to xray:1080. Legitimate traffic comes via
+    # iptables NAT REDIRECT (conntrack marks it as DNAT). Anything else is
+    # a port-scan or fingerprint probe and gets dropped. See SECURITY-AUDIT-2026-04.md Fix 2.
+    iptables -D INPUT -p tcp --dport 1080 -m conntrack --ctstate DNAT -j ACCEPT 2>/dev/null
+    iptables -D INPUT -p tcp --dport 1080 -j DROP 2>/dev/null
+    iptables -I INPUT 1 -p tcp --dport 1080 -m conntrack --ctstate DNAT -j ACCEPT
+    iptables -I INPUT 2 -p tcp --dport 1080 -j DROP
     iptables -t nat -A PREROUTING -p udp --dport 53 ! -d 192.168.8.1 -j DNAT --to-destination 192.168.8.1:53
     iptables -t nat -A PREROUTING -p tcp --dport 53 ! -d 192.168.8.1 -j DNAT --to-destination 192.168.8.1:53
     iptables -I FORWARD -p udp -m set --match-set vpn_list dst -j DROP
@@ -41,6 +54,8 @@ start() {
 
 stop() {
     killall xray 2>/dev/null
+    iptables -D INPUT -p tcp --dport 1080 -m conntrack --ctstate DNAT -j ACCEPT 2>/dev/null
+    iptables -D INPUT -p tcp --dport 1080 -j DROP 2>/dev/null
     iptables -t nat -D PREROUTING -p tcp -j SS_REDIR 2>/dev/null
     iptables -t nat -F SS_REDIR 2>/dev/null
     iptables -t nat -X SS_REDIR 2>/dev/null
