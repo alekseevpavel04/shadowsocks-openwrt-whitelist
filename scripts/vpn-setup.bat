@@ -21,6 +21,12 @@ if "%XRAY_SERVER%"=="YOUR_VPS_IP" (
     pause
     exit /b 1
 )
+if "%XRAY_UUID%"=="" (echo ERROR: XRAY_UUID not set in config.bat & pause & exit /b 1)
+if "%XRAY_UUID%"=="YOUR_UUID" (echo ERROR: XRAY_UUID is still placeholder & pause & exit /b 1)
+if "%XRAY_PUBLIC_KEY%"=="" (echo ERROR: XRAY_PUBLIC_KEY not set in config.bat & pause & exit /b 1)
+if "%XRAY_PUBLIC_KEY%"=="YOUR_PUBLIC_KEY" (echo ERROR: XRAY_PUBLIC_KEY is still placeholder & pause & exit /b 1)
+if "%XRAY_SHORT_ID%"=="" (echo ERROR: XRAY_SHORT_ID not set in config.bat & pause & exit /b 1)
+if "%XRAY_SHORT_ID%"=="YOUR_SHORT_ID" (echo ERROR: XRAY_SHORT_ID is still placeholder & pause & exit /b 1)
 
 set "ROUTER=192.168.8.1"
 set "LISTS_DIR=%~dp0..\lists"
@@ -56,7 +62,7 @@ echo.
 
 echo [3/5] Uploading xray config to router...
 set "TMPCONFIG=%TEMP%\xray-router.json"
-powershell -Command "$c=(Get-Content '%TEMPLATES_DIR%\xray-router.json') -replace '__SERVER_IP__','%CONNECT_SERVER%' -replace '__UUID__','%XRAY_UUID%' -replace '__PUBLIC_KEY__','%XRAY_PUBLIC_KEY%'; [System.IO.File]::WriteAllLines('%TMPCONFIG%',$c)"
+powershell -Command "$c=(Get-Content '%TEMPLATES_DIR%\xray-router.json') -replace '__SERVER_IP__','%CONNECT_SERVER%' -replace '__UUID__','%XRAY_UUID%' -replace '__PUBLIC_KEY__','%XRAY_PUBLIC_KEY%' -replace '__SHORT_ID__','%XRAY_SHORT_ID%'; [System.IO.File]::WriteAllLines('%TMPCONFIG%',$c)"
 ssh root@%ROUTER% "mkdir -p /etc/xray"
 scp -O "%TMPCONFIG%" root@%ROUTER%:/etc/xray/config.json
 if %errorlevel% neq 0 (

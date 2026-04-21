@@ -33,7 +33,7 @@ echo.
 pause
 
 echo [1/2] Uploading relay setup script...
-scp -O "%~dp0relay-setup.sh" root@%RELAY_SERVER%:/tmp/relay-setup.sh
+scp "%~dp0relay-setup.sh" root@%RELAY_SERVER%:/tmp/relay-setup.sh
 if %errorlevel% neq 0 (
     echo       FAILED - check SSH access (run option [9] SSH key for relay first)
     pause

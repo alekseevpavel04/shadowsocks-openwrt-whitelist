@@ -40,6 +40,7 @@ Item "3" "Update lists" "download blocked domains from GitHub"
 Section "DIAGNOSTICS"
 Item "4" "Test sites"   "HTTP status + response time per site"
 Item "5" "Full trace"   "check relay / router / exit IP"
+Item "E" "Speed test"   "per-hop bandwidth + latency"
 
 Section "MOBILE"
 Item "6" "Phone config" "VLESS URL for Shadowrocket / v2rayNG"

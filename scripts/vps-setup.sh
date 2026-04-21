@@ -43,13 +43,23 @@ if [ -z "$PRIVATE_KEY" ] || [ -z "$PUBLIC_KEY" ] || [ -z "$SHORT_ID" ]; then
     echo "$KEYS"
     exit 1
 fi
+# XRAY_SNI must be a domain whose A record points to this VPS.
+# TSPU blocks REALITY when SNI doesn't resolve to the destination IP.
+if [ -z "$XRAY_SNI" ]; then
+    echo "ERROR: XRAY_SNI env var not set."
+    echo "  Pass it from vpn-setup-vps.bat, or run: XRAY_SNI=your.domain.duckdns.org bash vps-setup.sh"
+    exit 1
+fi
 echo "      OK"
+echo "      SNI domain: $XRAY_SNI"
 echo ""
 
 # Write server config
-# routing.rules blocks egress back to Russian / private IPs (defense against
-# spy modules in RU apps that would otherwise see VPS IP as source).
-# See SECURITY-AUDIT-2026-04.md Fix 1 for the rationale.
+# routing.rules blocks egress to private IPs (prevents LAN pivots via VPN).
+# NOTE: the "geoip:ru" entry was removed on 2026-04-21. Loyalsoldier's geoip.dat
+# classifies global Akamai POP IPs (2.16.x, 2.17.x, 2.19.x, 37.19.202.x) as RU,
+# which blackholed TikTok/Adobe/Microsoft endpoints whenever DNS returned one of
+# those edges. See CLAUDE.md Problem 10 for the full story.
 echo "[4/4] Writing config and starting Xray..."
 mkdir -p /usr/local/etc/xray
 cat > /usr/local/etc/xray/config.json << EOF
@@ -68,7 +78,7 @@ cat > /usr/local/etc/xray/config.json << EOF
       "security": "reality",
       "realitySettings": {
         "dest": "www.microsoft.com:443",
-        "serverNames": ["www.microsoft.com"],
+        "serverNames": ["$XRAY_SNI"],
         "privateKey": "$PRIVATE_KEY",
         "shortIds": ["$SHORT_ID"]
       }
@@ -81,7 +91,7 @@ cat > /usr/local/etc/xray/config.json << EOF
   "routing": {
     "domainStrategy": "AsIs",
     "rules": [
-      {"type": "field", "outboundTag": "block", "ip": ["geoip:ru", "geoip:private"]}
+      {"type": "field", "outboundTag": "block", "ip": ["geoip:private"]}
     ]
   }
 }
@@ -110,6 +120,8 @@ if systemctl is-active --quiet xray; then
     echo ""
     echo "  XRAY_UUID=$UUID"
     echo "  XRAY_PUBLIC_KEY=$PUBLIC_KEY"
+    echo "  XRAY_SHORT_ID=$SHORT_ID"
+    echo "  XRAY_SNI=$XRAY_SNI"
     echo ""
     echo "  (PRIVATE_KEY stays on server only)"
     echo "========================================"

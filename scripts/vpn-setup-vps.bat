@@ -20,6 +20,19 @@ if "%XRAY_SERVER%"=="YOUR_VPS_IP" (
     pause
     exit /b 1
 )
+if "%XRAY_SNI%"=="" (
+    echo ERROR: Set XRAY_SNI in config.bat first.
+    echo   Get a free subdomain at duckdns.org pointing to %XRAY_SERVER%.
+    echo.
+    pause
+    exit /b 1
+)
+if "%XRAY_SNI%"=="YOUR_DOMAIN.duckdns.org" (
+    echo ERROR: XRAY_SNI is still placeholder in config.bat.
+    echo.
+    pause
+    exit /b 1
+)
 
 echo   Server: %XRAY_SERVER%
 echo.
@@ -41,7 +54,7 @@ echo.
 echo [2/2] Running setup on server...
 echo       (takes about 1 minute)
 echo.
-ssh root@%XRAY_SERVER% "bash /tmp/vps-setup.sh"
+ssh root@%XRAY_SERVER% "XRAY_SNI=%XRAY_SNI% bash /tmp/vps-setup.sh"
 if %errorlevel% neq 0 (
     echo.
     echo       FAILED - see errors above

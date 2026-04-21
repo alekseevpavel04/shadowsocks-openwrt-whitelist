@@ -20,6 +20,7 @@ if /i "!CHOICE!"=="A" call "%SCRIPTS%\vpn-setup-vps.bat"
 if /i "!CHOICE!"=="B" call "%SCRIPTS%\vpn-setup-relay.bat"
 if /i "!CHOICE!"=="C" call "%SCRIPTS%\vpn-setup.bat"
 if /i "!CHOICE!"=="D" call "%SCRIPTS%\vpn-relay-ufw.bat"
+if /i "!CHOICE!"=="E" call "%SCRIPTS%\vpn-speed.bat"
 if /i "!CHOICE!"=="Q" exit /b
 
 goto :menu

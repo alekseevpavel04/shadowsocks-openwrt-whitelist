@@ -24,7 +24,8 @@ start() {
     ipset add vpn_list 149.154.160.0/20 -exist
     ipset add vpn_list 91.105.192.0/23 -exist
     ipset add vpn_list 185.76.151.0/24 -exist
-    cat /etc/shadowsocks-libev/community.lst /etc/shadowsocks-libev/list-general.txt /etc/shadowsocks-libev/list-google.txt /etc/shadowsocks-libev/my-domains.txt 2>/dev/null | grep -v '^#' | grep -v '^$' | sort -u | awk '{print "ipset=/"$0"/vpn_list"}' > /tmp/dnsmasq.d/vpn-whitelist.conf
+    echo 'filter-AAAA' > /tmp/dnsmasq.d/vpn-whitelist.conf
+    cat /etc/shadowsocks-libev/community.lst /etc/shadowsocks-libev/list-general.txt /etc/shadowsocks-libev/list-google.txt /etc/shadowsocks-libev/my-domains.txt 2>/dev/null | grep -v '^#' | grep -v '^$' | sort -u | awk '{print "ipset=/"$0"/vpn_list"}' >> /tmp/dnsmasq.d/vpn-whitelist.conf
     /etc/init.d/dnsmasq restart
     iptables -t nat -N SS_REDIR 2>/dev/null
     iptables -t nat -F SS_REDIR

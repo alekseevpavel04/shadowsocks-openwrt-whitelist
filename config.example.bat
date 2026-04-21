@@ -14,6 +14,12 @@
 set "XRAY_SERVER=YOUR_VPS_IP"
 set "XRAY_UUID=YOUR_UUID"
 set "XRAY_PUBLIC_KEY=YOUR_PUBLIC_KEY"
+set "XRAY_SHORT_ID=YOUR_SHORT_ID"
+
+:: SNI domain for REALITY — must be a domain whose A record points to XRAY_SERVER.
+:: Get a free subdomain at duckdns.org, set A record = XRAY_SERVER, paste domain here.
+:: Example: myvpn1345.duckdns.org  (do NOT use www.microsoft.com — TSPU blocks SNI↔IP mismatches)
+set "XRAY_SNI=YOUR_DOMAIN.duckdns.org"
 
 :: Russian relay (Timeweb) — socat TCP relay to XRAY_SERVER
 :: Leave as YOUR_RELAY_IP (or empty) to connect directly to Amsterdam

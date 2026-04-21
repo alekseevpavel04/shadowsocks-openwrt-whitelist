@@ -8,3 +8,6 @@ lists/list-google.txt
 
 # Keep user's custom domains
 !lists/my-domains.txt
+
+# Claude scheduled tasks (unrelated to VPN project)
+claude-tasks/

@@ -213,3 +213,4 @@ if "!EXIT_IP!"=="" (
     )
 )
 echo.
+pause

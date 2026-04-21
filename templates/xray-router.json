@@ -20,9 +20,9 @@
       "security": "reality",
       "realitySettings": {
         "fingerprint": "chrome",
-        "serverName": "www.microsoft.com",
+        "serverName": "__SNI__",
         "publicKey": "__PUBLIC_KEY__",
-        "shortId": ""
+        "shortId": "__SHORT_ID__"
       }
     }
   }]
