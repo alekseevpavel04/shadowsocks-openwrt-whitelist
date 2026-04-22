@@ -17,8 +17,8 @@ if not exist "%~dp0..\config.bat" (
 )
 call "%~dp0..\config.bat"
 
-if "%XRAY_SERVER%"=="YOUR_VPS_IP" (
-    echo ERROR: Set XRAY_SERVER in config.bat first.
+if "%VPS_SERVER%"=="YOUR_VPS_IP" (
+    echo ERROR: Set VPS_SERVER in config.bat first.
     pause
     exit /b 1
 )
@@ -36,8 +36,8 @@ if not exist "%KEYFILE%" (
 )
 echo.
 
-echo [2/2] Copying key to server %XRAY_SERVER% (enter password when prompted)...
-type "%KEYFILE%.pub" | ssh root@%XRAY_SERVER% "mkdir -p /root/.ssh && cat >> /root/.ssh/authorized_keys && sort -u /root/.ssh/authorized_keys -o /root/.ssh/authorized_keys && chmod 600 /root/.ssh/authorized_keys && chmod 700 /root/.ssh && echo 'Key added.'"
+echo [2/2] Copying key to server %VPS_SERVER% (enter password when prompted)...
+type "%KEYFILE%.pub" | ssh root@%VPS_SERVER% "mkdir -p /root/.ssh && cat >> /root/.ssh/authorized_keys && sort -u /root/.ssh/authorized_keys -o /root/.ssh/authorized_keys && chmod 600 /root/.ssh/authorized_keys && chmod 700 /root/.ssh && echo 'Key added.'"
 if %errorlevel% neq 0 (
     echo       FAILED
     pause
@@ -47,7 +47,7 @@ echo       OK
 echo.
 
 echo [Test] Checking passwordless login...
-ssh -o BatchMode=yes -i "%KEYFILE%" root@%XRAY_SERVER% "echo OK"
+ssh -o BatchMode=yes -i "%KEYFILE%" root@%VPS_SERVER% "echo OK"
 if %errorlevel% neq 0 (
     echo       WARNING: key may not have been accepted. Try running again.
 ) else (

@@ -33,10 +33,10 @@ Selective VPN routing on an OpenWrt router. Only traffic to blocked/throttled do
 ```
 1. Deploy VPS: Vultr → Cloud Compute (Shared CPU), Ubuntu 24.04, Amsterdam, ~$6/mo
 2. Deploy relay: Timeweb → Ubuntu 24.04, any Russian datacenter (optional but recommended)
-3. Copy config.example.bat → config.bat, set XRAY_SERVER and RELAY_SERVER
-4. vpn.bat → [A] Setup VPS     — installs Xray on VPS, prints UUID + PUBLIC_KEY
-5. Fill UUID + PUBLIC_KEY into config.bat
-6. vpn.bat → [B] Setup relay   — installs socat relay on Timeweb VPS
+3. Copy config.example.bat → config.bat, set VPS_SERVER and RELAY_SERVER
+4. vpn.bat → [A] Setup VPS     — installs Xray on VPS, prints VPS_UUID + VPS_PUBLIC_KEY + VPS_SHORT_ID
+5. Fill VPS_* values into config.bat
+6. vpn.bat → [B] Setup relay   — installs Xray chain on relay, prints RELAY_UUID + RELAY_PUBLIC_KEY + RELAY_SHORT_ID (fill into config.bat)
 7. vpn.bat → [C] Setup router  — installs Xray on router, uploads config
 8. vpn.bat → [D] Enable UFW    — locks down relay firewall (22 + 443 only)
 9. vpn.bat → [7] SSH key: router   — one-time, no more password prompts

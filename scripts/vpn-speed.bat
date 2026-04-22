@@ -36,7 +36,7 @@ if not exist "%~dp0..\config.bat" (
 )
 call "%~dp0..\config.bat"
 
-set "CONNECT=%XRAY_SERVER%"
+set "CONNECT=%VPS_SERVER%"
 set "HAS_RELAY=0"
 if not "%RELAY_SERVER%"=="" if not "%RELAY_SERVER%"=="YOUR_RELAY_IP" (
     set "CONNECT=%RELAY_SERVER%"
@@ -46,9 +46,9 @@ if not "%RELAY_SERVER%"=="" if not "%RELAY_SERVER%"=="YOUR_RELAY_IP" (
 echo   Endpoint  : speed.cloudflare.com
 echo   Test size : 25 MB download per measurement
 if "!HAS_RELAY!"=="1" (
-    echo   Hops      : PC -^> %RELAY_SERVER% -^> %XRAY_SERVER% -^> internet
+    echo   Hops      : PC -^> %RELAY_SERVER% -^> %VPS_SERVER% -^> internet
 ) else (
-    echo   Hops      : PC -^> %XRAY_SERVER% -^> internet
+    echo   Hops      : PC -^> %VPS_SERVER% -^> internet
 )
 echo.
 echo   Takes 30-90 seconds. Please wait.
@@ -82,14 +82,14 @@ echo   PC    -^> %CONNECT%:443 TCP : !RTT_TCP!
 :: relay -> VPS RTT (the long-haul leg)
 set "RTT_LONG=N/A"
 if "!HAS_RELAY!"=="1" (
-    ssh -o ConnectTimeout=8 -o BatchMode=yes root@%RELAY_SERVER% "ping -c4 -W2 %XRAY_SERVER% 2>/dev/null | tail -1 | awk -F'/' '{print int($5*10+0.5)/10 \"ms\"}'" > "%T%" 2>nul
+    ssh -o ConnectTimeout=8 -o BatchMode=yes root@%RELAY_SERVER% "ping -c4 -W2 %VPS_SERVER% 2>/dev/null | tail -1 | awk -F'/' '{print int($5*10+0.5)/10 \"ms\"}'" > "%T%" 2>nul
     set /p RTT_LONG=<"%T%"
     if "!RTT_LONG!"=="" set "RTT_LONG=FAIL"
     echo   relay -^> VPS              : !RTT_LONG!
 )
 
 :: VPS -> 1.1.1.1 RTT (sanity: VPS internet quality)
-ssh -o ConnectTimeout=8 -o BatchMode=yes root@%XRAY_SERVER% "ping -c4 -W2 1.1.1.1 2>/dev/null | tail -1 | awk -F'/' '{print int($5*10+0.5)/10 \"ms\"}'" > "%T%" 2>nul
+ssh -o ConnectTimeout=8 -o BatchMode=yes root@%VPS_SERVER% "ping -c4 -W2 1.1.1.1 2>/dev/null | tail -1 | awk -F'/' '{print int($5*10+0.5)/10 \"ms\"}'" > "%T%" 2>nul
 set /p RTT_EXIT=<"%T%"
 if "!RTT_EXIT!"=="" set "RTT_EXIT=FAIL"
 echo   VPS   -^> 1.1.1.1          : !RTT_EXIT!
@@ -112,7 +112,7 @@ if "!HAS_RELAY!"=="1" (
 
 echo   VPS   -^> Cloudflare    : downloading 25 MB...
 set "RAW="
-ssh -o ConnectTimeout=10 root@%XRAY_SERVER% "curl -s -o /dev/null -w '%%{speed_download}' --max-time 60 https://speed.cloudflare.com/__down?bytes=26214400 2>/dev/null" > "%T%" 2>nul
+ssh -o ConnectTimeout=10 root@%VPS_SERVER% "curl -s -o /dev/null -w '%%{speed_download}' --max-time 60 https://speed.cloudflare.com/__down?bytes=26214400 2>/dev/null" > "%T%" 2>nul
 set /p RAW=<"%T%"
 set "DL_VPS=N/A"
 if not "!RAW!"=="" call :tomb "!RAW!" DL_VPS
@@ -175,11 +175,11 @@ ssh -o ConnectTimeout=8 root@%ROUTER% "ps w 2>/dev/null | awk '/[x]ray run/ {pri
 
 if "!HAS_RELAY!"=="1" (
     echo   Relay:
-    ssh -o ConnectTimeout=8 root@%RELAY_SERVER% "C=$(ss -tn state established 2>/dev/null | grep -c '%XRAY_SERVER%') ; P=$(ps aux 2>/dev/null | grep -c '[s]ocat') ; echo \"    socat fwd to VPS: $C active\" ; echo \"    socat processes : $P (>50 = fd leak, run: systemctl restart vpn-relay)\" ; uptime 2>/dev/null | awk -F'load average:' '{print \"    load:\"$2}'" 2>nul
+    ssh -o ConnectTimeout=8 root@%RELAY_SERVER% "C=$(ss -tn state established 2>/dev/null | grep -c '%VPS_SERVER%') ; echo \"    xray fwd to VPS: $C established\" ; ps -o pcpu,pmem,comm -C xray --no-headers 2>/dev/null | awk '{print \"    xray cpu=\"$1\"%% mem=\"$2\"%%\"}' ; uptime 2>/dev/null | awk -F'load average:' '{print \"    load:\"$2}'" 2>nul
 )
 
 echo   VPS:
-ssh -o ConnectTimeout=8 root@%XRAY_SERVER% "ps -o pcpu,pmem,comm -C xray --no-headers 2>/dev/null | awk '{print \"    xray cpu=\"$1\"%% mem=\"$2\"%%\"}' ; uptime 2>/dev/null | awk -F'load average:' '{print \"    load:\"$2}'" 2>nul
+ssh -o ConnectTimeout=8 root@%VPS_SERVER% "ps -o pcpu,pmem,comm -C xray --no-headers 2>/dev/null | awk '{print \"    xray cpu=\"$1\"%% mem=\"$2\"%%\"}' ; uptime 2>/dev/null | awk -F'load average:' '{print \"    load:\"$2}'" 2>nul
 echo.
 
 :: ============================================================
