@@ -1,66 +1,68 @@
 #!/bin/bash
-# Xray VLESS+REALITY server setup
-# Run on a fresh Ubuntu VPS: bash vps-setup.sh
+# VPS Xray setup: VLESS+TCP+VISION+REALITY inbound on :443.
+# Egress node — no outbound chain, freedom to internet.
+# Run via vpn-setup-vps.bat, which passes VPS_SNI as env.
 set -e
 
 echo "========================================"
-echo "  Xray VLESS+REALITY Server Setup"
+echo "  VPS Xray setup (egress, Amsterdam)"
 echo "========================================"
 echo ""
 
-# Install xray (skip if already installed)
-echo "[1/4] Installing Xray..."
+if [ -z "$VPS_SNI" ]; then
+    echo "ERROR: VPS_SNI env var not set (expected from vpn-setup-vps.bat)"
+    exit 1
+fi
+
+# [1/5] BBR. Default Ubuntu uses cubic; on long-haul with any loss BBR is ~5x faster.
+echo "[1/5] Enabling BBR..."
+modprobe tcp_bbr 2>/dev/null || true
+sysctl -w net.core.default_qdisc=fq >/dev/null
+sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null
+if ! grep -q "tcp_congestion_control=bbr" /etc/sysctl.conf; then
+    echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf
+    echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.conf
+fi
+echo "      $(sysctl -n net.ipv4.tcp_congestion_control)"
+echo ""
+
+# [2/5] Xray install.
+echo "[2/5] Installing Xray..."
 if [ -f /usr/local/bin/xray ]; then
-    echo "      Already installed: $(/usr/local/bin/xray version 2>&1 | head -1)"
+    echo "      already present: $(/usr/local/bin/xray version 2>&1 | head -1)"
 else
     bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install --without-geodata
-    echo "      OK"
 fi
 echo ""
 
-# Install geoip.dat (Loyalsoldier — wider RU coverage than v2fly default)
-# Required for the routing rule that blocks egress back to Russian IPs.
-echo "[2/4] Installing geoip.dat..."
+# [3/5] geoip (for blackhole of private IPs).
+echo "[3/5] Installing geoip.dat..."
 mkdir -p /usr/local/share/xray
 if [ ! -s /usr/local/share/xray/geoip.dat ]; then
     curl -fsSL --max-time 60 -o /usr/local/share/xray/geoip.dat \
         https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat
 fi
-echo "      $(ls -lh /usr/local/share/xray/geoip.dat | awk '{print $5}') geoip.dat"
+echo "      $(ls -lh /usr/local/share/xray/geoip.dat | awk '{print $5}')"
 echo ""
 
-# Generate keys and UUID
-echo "[3/4] Generating REALITY keys..."
-XRAY_BIN=/usr/local/bin/xray
-KEYS=$($XRAY_BIN x25519)
+# [4/5] Generate keys + UUID + shortId.
+echo "[4/5] Generating REALITY keys..."
+KEYS=$(/usr/local/bin/xray x25519)
 PRIVATE_KEY=$(echo "$KEYS" | grep -i "private" | awk '{print $NF}')
-PUBLIC_KEY=$(echo "$KEYS"  | grep -i "public"  | awk '{print $NF}')
-UUID=$($XRAY_BIN uuid)
+PUBLIC_KEY=$(echo  "$KEYS" | grep -i "public"  | awk '{print $NF}')
+UUID=$(/usr/local/bin/xray uuid)
 SHORT_ID=$(openssl rand -hex 4)
-
-if [ -z "$PRIVATE_KEY" ] || [ -z "$PUBLIC_KEY" ] || [ -z "$SHORT_ID" ]; then
-    echo "ERROR: Failed to parse keys. Raw xray x25519 output:"
-    echo "$KEYS"
-    exit 1
-fi
-# XRAY_SNI must be a domain whose A record points to this VPS.
-# TSPU blocks REALITY when SNI doesn't resolve to the destination IP.
-if [ -z "$XRAY_SNI" ]; then
-    echo "ERROR: XRAY_SNI env var not set."
-    echo "  Pass it from vpn-setup-vps.bat, or run: XRAY_SNI=your.domain.duckdns.org bash vps-setup.sh"
+if [ -z "$PRIVATE_KEY" ] || [ -z "$PUBLIC_KEY" ] || [ -z "$SHORT_ID" ] || [ -z "$UUID" ]; then
+    echo "ERROR: key generation failed."
     exit 1
 fi
 echo "      OK"
-echo "      SNI domain: $XRAY_SNI"
 echo ""
 
-# Write server config
-# routing.rules blocks egress to private IPs (prevents LAN pivots via VPN).
-# NOTE: the "geoip:ru" entry was removed on 2026-04-21. Loyalsoldier's geoip.dat
-# classifies global Akamai POP IPs (2.16.x, 2.17.x, 2.19.x, 37.19.202.x) as RU,
-# which blackholed TikTok/Adobe/Microsoft endpoints whenever DNS returned one of
-# those edges. See CLAUDE.md Problem 10 for the full story.
-echo "[4/4] Writing config and starting Xray..."
+# [5/5] Config + start.
+# No geoip:ru blackhole — Loyalsoldier base classifies Akamai edge as RU
+# and breaks TikTok/Adobe (Problem 10 in CLAUDE.md).
+echo "[5/5] Writing config and starting Xray..."
 mkdir -p /usr/local/etc/xray
 cat > /usr/local/etc/xray/config.json << EOF
 {
@@ -78,7 +80,7 @@ cat > /usr/local/etc/xray/config.json << EOF
       "security": "reality",
       "realitySettings": {
         "dest": "www.microsoft.com:443",
-        "serverNames": ["$XRAY_SNI"],
+        "serverNames": ["$VPS_SNI"],
         "privateKey": "$PRIVATE_KEY",
         "shortIds": ["$SHORT_ID"]
       }
@@ -98,36 +100,32 @@ cat > /usr/local/etc/xray/config.json << EOF
 EOF
 
 systemctl restart xray
-systemctl enable xray
+systemctl enable xray >/dev/null 2>&1
 
-# Open port 443 in UFW if active
-if ufw status | grep -q "Status: active"; then
-    ufw allow 443/tcp
-    ufw reload
+if ufw status 2>/dev/null | grep -q "Status: active"; then
+    ufw allow 443/tcp >/dev/null
+    ufw reload >/dev/null
 fi
 
 sleep 2
-
-# Verify
-if systemctl is-active --quiet xray; then
-    echo "      OK"
-    echo ""
-    echo "========================================"
-    echo "  SUCCESS"
-    echo "========================================"
-    echo ""
-    echo "  Copy these values to config.bat:"
-    echo ""
-    echo "  XRAY_UUID=$UUID"
-    echo "  XRAY_PUBLIC_KEY=$PUBLIC_KEY"
-    echo "  XRAY_SHORT_ID=$SHORT_ID"
-    echo "  XRAY_SNI=$XRAY_SNI"
-    echo ""
-    echo "  (PRIVATE_KEY stays on server only)"
-    echo "========================================"
-else
-    echo ""
-    echo "ERROR: Xray failed to start. Logs:"
+if ! systemctl is-active --quiet xray; then
+    echo "ERROR: Xray failed to start."
     journalctl -u xray --no-pager -n 30
     exit 1
 fi
+
+echo "      OK"
+echo ""
+echo "========================================"
+echo "  VPS SUCCESS"
+echo "========================================"
+echo ""
+echo "  Paste into config.bat:"
+echo ""
+echo "  VPS_UUID=$UUID"
+echo "  VPS_PUBLIC_KEY=$PUBLIC_KEY"
+echo "  VPS_SHORT_ID=$SHORT_ID"
+echo "  VPS_SNI=$VPS_SNI"
+echo ""
+echo "  (private key stays on VPS only)"
+echo "========================================"

@@ -1,75 +1,51 @@
 @echo off
 echo ========================================
-echo   VPN - VPS SETUP (run once on Amsterdam VPS)
+echo   VPS SETUP (VLESS+REALITY egress)
 echo ========================================
 echo.
 
-:: Load config
 if not exist "%~dp0..\config.bat" (
     echo ERROR: config.bat not found.
-    echo Copy config.example.bat to config.bat and set XRAY_SERVER.
-    echo.
-    pause
-    exit /b 1
+    echo Copy config.example.bat to config.bat and set VPS_SERVER.
+    pause & exit /b 1
 )
 call "%~dp0..\config.bat"
 
-if "%XRAY_SERVER%"=="YOUR_VPS_IP" (
-    echo ERROR: Set XRAY_SERVER in config.bat first.
-    echo.
-    pause
-    exit /b 1
-)
-if "%XRAY_SNI%"=="" (
-    echo ERROR: Set XRAY_SNI in config.bat first.
-    echo   Get a free subdomain at duckdns.org pointing to %XRAY_SERVER%.
-    echo.
-    pause
-    exit /b 1
-)
-if "%XRAY_SNI%"=="YOUR_DOMAIN.duckdns.org" (
-    echo ERROR: XRAY_SNI is still placeholder in config.bat.
-    echo.
-    pause
-    exit /b 1
-)
+if "%VPS_SERVER%"=="" (echo ERROR: Set VPS_SERVER in config.bat & pause & exit /b 1)
+if "%VPS_SERVER%"=="YOUR_VPS_IP" (echo ERROR: VPS_SERVER is placeholder in config.bat & pause & exit /b 1)
 
-echo   Server: %XRAY_SERVER%
+:: Auto-derive SNI if user left placeholder
+set "VPS_SNI_EFFECTIVE=%VPS_SNI%"
+if "%VPS_SNI_EFFECTIVE%"=="" set "VPS_SNI_EFFECTIVE=%VPS_SERVER%.sslip.io"
+if "%VPS_SNI_EFFECTIVE%"=="YOUR_VPS_IP.sslip.io" set "VPS_SNI_EFFECTIVE=%VPS_SERVER%.sslip.io"
+
+echo   VPS IP  : %VPS_SERVER%
+echo   VPS SNI : %VPS_SNI_EFFECTIVE%
 echo.
-echo   This will install Xray on the VPS and print UUID + PUBLIC_KEY.
-echo   After this, copy those values back into config.bat.
+echo   This wipes any old Xray config on %VPS_SERVER% and sets up a fresh
+echo   VLESS+REALITY egress inbound on :443. New UUID + keys are generated.
 echo.
 pause
 
-echo [1/2] Uploading setup script to server...
-scp -O "%~dp0vps-setup.sh" root@%XRAY_SERVER%:/tmp/vps-setup.sh
-if %errorlevel% neq 0 (
-    echo       FAILED - check that server is running and SSH works
-    pause
-    exit /b 1
-)
+echo [1/3] Wiping old VPS config...
+ssh root@%VPS_SERVER% "systemctl stop xray 2>/dev/null; rm -f /usr/local/etc/xray/config.json; echo wiped"
 echo       OK
 echo.
 
-echo [2/2] Running setup on server...
-echo       (takes about 1 minute)
+echo [2/3] Uploading setup script...
+scp -O "%~dp0vps-setup.sh" root@%VPS_SERVER%:/tmp/vps-setup.sh
+if %errorlevel% neq 0 (echo       FAILED & pause & exit /b 1)
+echo       OK
 echo.
-ssh root@%XRAY_SERVER% "XRAY_SNI=%XRAY_SNI% bash /tmp/vps-setup.sh"
-if %errorlevel% neq 0 (
-    echo.
-    echo       FAILED - see errors above
-    pause
-    exit /b 1
-)
+
+echo [3/3] Running setup on VPS...
+ssh root@%VPS_SERVER% "VPS_SNI=%VPS_SNI_EFFECTIVE% bash /tmp/vps-setup.sh"
+if %errorlevel% neq 0 (echo       FAILED - see output above & pause & exit /b 1)
 
 echo.
 echo ========================================
-echo   Done. Now:
-echo   1. Copy XRAY_UUID and XRAY_PUBLIC_KEY
-echo      from the output above into config.bat
-echo   2. Option [B] Setup relay  (relay setup)
-echo   3. Option [C] Setup router (router setup)
-echo   4. Option [1] Start VPN    (start VPN)
+echo   Next: paste VPS_UUID / VPS_PUBLIC_KEY / VPS_SHORT_ID / VPS_SNI
+echo   shown above into config.bat, then run option [B] Setup relay.
 echo ========================================
 echo.
 pause

@@ -1,5 +1,14 @@
 # Your custom domains, one per line
 # Lines starting with # are ignored
+
+# Google core (search/auth/fonts/static). Subdomains auto-match.
+google.com
+www.google.com
+googleapis.com
+gstatic.com
+googleusercontent.com
+google.ru
+
 x.com
 twitter.com
 twimg.com
